@@ -1,5 +1,5 @@
 import { findIndex } from 'lodash';
-import { Node } from '@/facet/layout/node';
+import type { Node } from '../facet/layout/node';
 
 export const getSubTotalNodeWidthOrHeightByLevel = (
   sampleNodesForAllLevels: Node[],
@@ -60,4 +60,33 @@ export const getIndexRangeWithOffsets = (
     start: yMin,
     end: yMax,
   };
+};
+
+export const getAdjustedRowScrollX = (
+  hRowScrollX: number,
+  cornerBBox: {
+    width: number;
+    originalWidth: number;
+  },
+): number => {
+  const { width, originalWidth } = cornerBBox;
+
+  const scrollX = Math.min(originalWidth - width, hRowScrollX);
+
+  if (scrollX < 0) {
+    return 0;
+  }
+  return scrollX;
+};
+
+export const getAdjustedScrollOffset = (
+  scrollY: number,
+  contentLength: number,
+  containerLength: number,
+): number => {
+  const offset = Math.min(contentLength - containerLength, scrollY);
+  if (offset < 0) {
+    return 0;
+  }
+  return offset;
 };

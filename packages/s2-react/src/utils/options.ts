@@ -1,8 +1,8 @@
-import React from 'react';
-import { customMerge, DEFAULT_OPTIONS, S2Options } from '@antv/s2';
-import { SHEET_COMPONENT_DEFAULT_OPTIONS } from '@/common/constant';
+import type { S2Options } from '@antv/s2';
+import { getBaseSheetComponentOptions } from '@antv/s2-shared';
+import type React from 'react';
+import { RENDER_TOOLTIP_OPTION } from '../common';
 
 export const getSheetComponentOptions = (
   ...options: Partial<S2Options<React.ReactNode>>[]
-): S2Options =>
-  customMerge(DEFAULT_OPTIONS, SHEET_COMPONENT_DEFAULT_OPTIONS, ...options);
+): S2Options => getBaseSheetComponentOptions(RENDER_TOOLTIP_OPTION, ...options);

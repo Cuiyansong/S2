@@ -3,6 +3,8 @@ title: S2Options
 order: 1
 ---
 
+表格参数配置
+
 | 参数 | 类型 | 必选  | 默认值 | 功能描述 |
 | :-- | :-- | :-: | :--  | :-- | --- |
 | width | `number` |    | 600  | 表格宽度 |
@@ -24,10 +26,9 @@ order: 1
 | frozenColCount | `number` |  |    | 冻结列的数量，从左侧开始计数 （明细表有效） |
 | frozenTrailingRowCount | `number` |    |  | 冻结行数量，从底部开始计数 （明细表有效） |
 | frozenTrailingColCount | `number` |    |  | 冻结列的数量，从右侧开始计数 （明细表有效） |
-| hierarchyCollapse | `boolean` |  |   `false` | 在树状结构模式下行头是否默认展开。 |
 | hdAdapter | `boolean` |  |   `true` | 是否开启高清屏适配，解决多屏切换，高清视网膜屏字体渲染模糊的问题 |
 | mergedCellsInfo | [MergedCellInfo[][]](#mergedcellinfo) |    |  | 合并单元格信息 |
-| placeholder | string |    |  | 空单元格的填充内容 |
+| placeholder |  `(meta: Record<string, any>) => string | string` |    |  | 空单元格的填充内容 |
 | cornerText | string |    |  | 自定义角头文本 （自定义树 `hierarchyType: customTree` 时有效） |
 | cornerExtraFieldText | string |    |  | 自定义角头虚拟数值字段文本 （数值挂行头时有效，替换 "数值" 这两个字） |
 | dataCell | [DataCellCallback](#datacellcallback) |  |    | 自定义单元格 cell |
@@ -53,15 +54,9 @@ order: 1
 
 `markdown:docs/common/tooltip.zh.md`
 
-## Pagination
+`markdown:docs/common/custom-tooltip.zh.md`
 
-boolean ｜ object **必选**,_default: null_ 功能描述： 分页配置
-
-| 参数      | 说明          | 类型   | 默认值 | 必选  |
-| --------- | ------------------- | ------ | ------ | :--:  |
-| pageSize  | 每页数量            | `number` | - |  ✓   |
-| current   | 当前页（从 1 开始） | `number` |       1      |     |
-| total     | 数据总条数          | `number` | - |      |
+`markdown:docs/common/pagination.zh.md`
 
 `markdown:docs/common/style.zh.md`
 
@@ -85,8 +80,8 @@ CellCallback = (node: Node, spreadsheet: SpreadSheet, ...restOptions: unknown[])
 
 | 参数 | 说明 | 类型 | 默认值 | 必选  |
 | --- | --- | --- | --- | :-:  |
-| node | 当前渲染的 node 节点 | [Node](#node) | - | ✓ |
-| spreadsheet | 表类实例，可以访问任意的配置信息 | [SpreadSheet](#spreadsheet) | - | ✓ |
+| node | 当前渲染的 node 节点 | [Node](/zh/docs/api/basic-class/node) | - | ✓ |
+| spreadsheet | 表类实例，可以访问任意的配置信息 | [SpreadSheet](/zh/docs/api/basic-class/spreadsheet) | - | ✓ |
 | restOptions | 不定参数，传递额外的信息 | `unknown[]` | - |  |
 
 ## CornerHeaderCallback
@@ -100,7 +95,7 @@ CornerHeaderCallback = (parent: S2CellType, spreadsheet: SpreadSheet, ...restOpt
 | 参数 | 说明 | 类型 | 默认值 | 必选  |
 | --- | --- | --- | --- | :-:  |
 | parent |   父级单元格 | [S2CellType](#s2celltype) | - | ✓ |
-| spreadsheet | 表类实例，可以访问任意的配置信息 | [SpreadSheet](#spreadsheet) | - | ✓   |
+| spreadsheet | 表类实例，可以访问任意的配置信息 | [SpreadSheet](/zh/docs/api/basic-class/spreadsheet) | - | ✓   |
 | restOptions |   不定参数，传递额外的信息 | `unknown[]` | - |  |
 
 `markdown:docs/common/custom/layoutHierarchy.zh.md`
@@ -170,14 +165,14 @@ export type DataItem = SimpleDataItem | MultiData;
 
 | 参数 | 说明                             | 类型 | 默认值 | 必选  |
 | --- | --- | --- | --- | :-: |
-| colNodes |   列的所有节点 | [Node[]](#node) |  |  |
+| colNodes |   列的所有节点 | [Node[]](/zh/docs/api/basic-class/node) |  |  |
 | colsHierarchy |   列的结构信息 | [Hierarchy](#hierarchy) |  |  |
 | rowNodes |   行的所有节点 | [Node[]](#node) |  |  |
 | rowsHierarchy |   行的结构信息 | [Hierarchy](#hierarchy) |  | ✓ |
-| rowLeafNodes |   行的所有叶子节点，用于笛卡尔交叉 | [Node[]](#node) |  |  |
-| colLeafNodes |   列的所有叶子节点，用于笛卡尔交叉 | [Node[]](#node) |  |  |
+| rowLeafNodes |   行的所有叶子节点，用于笛卡尔交叉 | [Node[]](/zh/docs/api/basic-class/node) |  |  |
+| colLeafNodes |   列的所有叶子节点，用于笛卡尔交叉 | [Node[]](/zh/docs/api/basic-class/node) |  |  |
 | getViewMeta |  获取交叉出 [x,y] 对应坐标的信息 | `(rowIndex: number, colIndex: number) => ViewMeta` | | |
-| spreadsheet |  表类实例，可以访问任意的配置信息 | [SpreadSheet](#spreadsheet) | |  |
+| spreadsheet |  表类实例，可以访问任意的配置信息 | [SpreadSheet](/zh/docs/api/basic-class/spreadsheet) | |  |
 
 ## DataSet
 
@@ -187,8 +182,4 @@ DataSet = (spreadsheet: SpreadSheet) => BaseDataSet;
 
 ## MergedCellInfo
 
-| 参数            | 说明                 | 类型                   | 默认值 | 必选 |
-| --------------- | ------------------ | ---------------------- | ------ | ---- |
-| colIndex        | 单元格的列索引        | `number`               | -      |      |
-| rowIndex        | 单元格的行索引        | `number`               | -      |      |
-| showText        | 合并单元格是否展示当前单元格的 meta 信息，只需要对一个单元格进行标识，</br>若未对单元格进行标识，会默认使用第一个选中点击的单元格的 meta 信息 | `booelan`      | -      |      |
+`markdown:docs/common/merged-cell.zh.md`

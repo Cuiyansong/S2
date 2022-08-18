@@ -1,12 +1,12 @@
 import {
   getBaseCellData,
+  GEvent,
   S2Event,
   SpreadSheet,
-  TargetCellInfo,
-  GEvent,
+  type TargetCellInfo,
 } from '@antv/s2';
 import React from 'react';
-import { BaseSheetComponentProps } from '@/components';
+import type { SheetComponentsProps } from '../components';
 
 export const useCellEvent = (
   eventName: S2Event,
@@ -42,11 +42,12 @@ export const useS2Event = (
   }, [s2, handler, eventName]);
 };
 
-export function useEvents(props: BaseSheetComponentProps, s2: SpreadSheet) {
+export function useEvents(props: SheetComponentsProps, s2: SpreadSheet) {
   // ============== Row Cell ====================
   useCellEvent(S2Event.ROW_CELL_HOVER, props.onRowCellHover, s2);
   useCellEvent(S2Event.ROW_CELL_CLICK, props.onRowCellClick, s2);
   useCellEvent(S2Event.ROW_CELL_DOUBLE_CLICK, props.onRowCellDoubleClick, s2);
+  useCellEvent(S2Event.ROW_CELL_CONTEXT_MENU, props.onRowCellContextMenu, s2);
   useCellEvent(S2Event.ROW_CELL_MOUSE_DOWN, props.onRowCellMouseDown, s2);
   useCellEvent(S2Event.ROW_CELL_MOUSE_UP, props.onRowCellMouseUp, s2);
   useCellEvent(S2Event.ROW_CELL_MOUSE_MOVE, props.onRowCellMouseMove, s2);
@@ -55,11 +56,13 @@ export function useEvents(props: BaseSheetComponentProps, s2: SpreadSheet) {
     props.onRowCellCollapseTreeRows,
     s2,
   );
+  useS2Event(S2Event.ROW_CELL_SCROLL, props.onRowCellScroll, s2);
 
   // ============== Col Cell ====================
   useCellEvent(S2Event.COL_CELL_HOVER, props.onColCellHover, s2);
   useCellEvent(S2Event.COL_CELL_CLICK, props.onColCellClick, s2);
   useCellEvent(S2Event.COL_CELL_DOUBLE_CLICK, props.onColCellDoubleClick, s2);
+  useCellEvent(S2Event.COL_CELL_CONTEXT_MENU, props.onColCellContextMenu, s2);
   useCellEvent(S2Event.COL_CELL_MOUSE_DOWN, props.onColCellMouseDown, s2);
   useCellEvent(S2Event.COL_CELL_MOUSE_UP, props.onColCellMouseUp, s2);
   useCellEvent(S2Event.COL_CELL_MOUSE_MOVE, props.onColCellMouseMove, s2);
@@ -68,6 +71,7 @@ export function useEvents(props: BaseSheetComponentProps, s2: SpreadSheet) {
   useCellEvent(S2Event.DATA_CELL_HOVER, props.onDataCellHover, s2);
   useCellEvent(S2Event.DATA_CELL_CLICK, props.onDataCellClick, s2);
   useCellEvent(S2Event.DATA_CELL_DOUBLE_CLICK, props.onDataCellDoubleClick, s2);
+  useCellEvent(S2Event.DATA_CELL_CONTEXT_MENU, props.onDataCellContextMenu, s2);
   useCellEvent(S2Event.DATA_CELL_MOUSE_DOWN, props.onDataCellMouseDown, s2);
   useCellEvent(S2Event.DATA_CELL_MOUSE_UP, props.onDataCellMouseUp, s2);
   useCellEvent(S2Event.DATA_CELL_MOUSE_MOVE, props.onDataCellMouseMove, s2);
@@ -77,10 +81,11 @@ export function useEvents(props: BaseSheetComponentProps, s2: SpreadSheet) {
     s2,
   );
   useS2Event(
-    S2Event.DATE_CELL_BRUSH_SELECTION,
+    S2Event.DATA_CELL_BRUSH_SELECTION,
     props.onDataCellBrushSelection,
     s2,
   );
+  useS2Event(S2Event.DATA_CELL_SELECT_MOVE, props.onDataCellSelectMove, s2);
 
   // ============== Corner Cell ====================
   useCellEvent(S2Event.CORNER_CELL_HOVER, props.onCornerCellHover, s2);
@@ -90,16 +95,26 @@ export function useEvents(props: BaseSheetComponentProps, s2: SpreadSheet) {
     props.onCornerCellDoubleClick,
     s2,
   );
+  useCellEvent(
+    S2Event.CORNER_CELL_CONTEXT_MENU,
+    props.onCornerCellContextMenu,
+    s2,
+  );
   useCellEvent(S2Event.CORNER_CELL_MOUSE_DOWN, props.onCornerCellMouseDown, s2);
   useCellEvent(S2Event.CORNER_CELL_MOUSE_UP, props.onCornerCellMouseUp, s2);
   useCellEvent(S2Event.CORNER_CELL_MOUSE_MOVE, props.onCornerCellMouseMove, s2);
 
   // ============== Merged Cells ====================
-  useCellEvent(S2Event.MERGED_CELLS_HOVER, props.onMergedCellsHoverer, s2);
-  useCellEvent(S2Event.MERGED_CELLS_CLICK, props.onMergedCellClick, s2);
+  useCellEvent(S2Event.MERGED_CELLS_HOVER, props.onMergedCellsHover, s2);
+  useCellEvent(S2Event.MERGED_CELLS_CLICK, props.onMergedCellsClick, s2);
   useCellEvent(
     S2Event.MERGED_CELLS_DOUBLE_CLICK,
     props.onMergedCellsDoubleClick,
+    s2,
+  );
+  useCellEvent(
+    S2Event.MERGED_CELLS_CONTEXT_MENU,
+    props.onMergedCellsContextMenu,
     s2,
   );
 
@@ -130,6 +145,7 @@ export function useEvents(props: BaseSheetComponentProps, s2: SpreadSheet) {
     s2,
   );
   useS2Event(S2Event.LAYOUT_PAGINATION, props.onLayoutPagination, s2);
+  /** @deprecated 已废弃, 请使用 S2Event.GLOBAL_SCROLL 代替 */
   useS2Event(S2Event.LAYOUT_CELL_SCROLL, props.onLayoutCellScroll, s2);
   useS2Event(
     S2Event.LAYOUT_AFTER_COLLAPSE_ROWS,
@@ -192,8 +208,11 @@ export function useEvents(props: BaseSheetComponentProps, s2: SpreadSheet) {
   useS2Event(S2Event.GLOBAL_ACTION_ICON_CLICK, props.onActionIconClick, s2);
   useS2Event(S2Event.GLOBAL_CONTEXT_MENU, props.onContextMenu, s2);
   useS2Event(S2Event.GLOBAL_HOVER, props.onMouseHover, s2);
+  useS2Event(S2Event.GLOBAL_CLICK, props.onClick, s2);
+  useS2Event(S2Event.GLOBAL_DOUBLE_CLICK, props.onDoubleClick, s2);
   useS2Event(S2Event.GLOBAL_SELECTED, props.onSelected, s2);
   useS2Event(S2Event.GLOBAL_MOUSE_UP, props.onMouseUp, s2);
   useS2Event(S2Event.GLOBAL_RESET, props.onReset, s2);
   useS2Event(S2Event.GLOBAL_LINK_FIELD_JUMP, props.onLinkFieldJump, s2);
+  useS2Event(S2Event.GLOBAL_SCROLL, props.onScroll, s2);
 }

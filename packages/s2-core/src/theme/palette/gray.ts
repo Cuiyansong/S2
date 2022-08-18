@@ -1,5 +1,5 @@
-import { Palette, PaletteMeta } from '@/common';
-import { generatePalette } from '@/utils/color';
+import type { Palette, PaletteMeta } from '../../common';
+import { generatePalette } from '../../utils/color';
 
 const paletteGrayMeta: PaletteMeta = {
   brandColor: '#9DA7B6',
@@ -7,6 +7,12 @@ const paletteGrayMeta: PaletteMeta = {
   semanticColors: {
     red: '#FF4D4F',
     green: '#29A294',
+    yellow: '#FAAD14',
+  },
+  others: {
+    // ---------- searchResults colors ----------
+    highlight: '#87B5FF',
+    results: '#F0F7FF',
   },
   basicColorRelations: [
     {

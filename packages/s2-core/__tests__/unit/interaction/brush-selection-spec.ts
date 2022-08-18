@@ -1,6 +1,7 @@
 import { Group } from '@antv/g-canvas';
 import { range } from 'lodash';
-import { DataCell } from 'src/cell/data-cell';
+import { DataCell } from '@/cell/data-cell';
+import { FrozenGroup } from '@/common/constant';
 import { RootInteraction } from '@/interaction/root';
 import {
   ScrollDirection,
@@ -11,18 +12,18 @@ import {
   InteractionBrushSelectionStage,
   InterceptType,
   Node,
-  OriginalEvent,
+  type OriginalEvent,
   PivotSheet,
   S2Event,
   SpreadSheet,
-  ViewMeta,
+  type ViewMeta,
 } from '@/index';
-import { TableFacet } from '@/facet';
+import type { TableFacet } from '@/facet';
 
 jest.mock('@/interaction/event-controller');
 jest.mock('@/interaction/root');
 jest.mock('@/utils/tooltip');
-jest.mock('src/cell/data-cell');
+jest.mock('@/cell/data-cell');
 
 const MockRootInteraction =
   RootInteraction as unknown as jest.Mock<RootInteraction>;
@@ -153,6 +154,46 @@ describe('Interaction Brush Selection Tests', () => {
     ).toBeFalsy();
   });
 
+  test('should highlight relevant col&row header cell with selectedCellHighlight option toggled on', () => {
+    mockSpreadSheetInstance.setOptions({
+      interaction: { selectedCellHighlight: true },
+    });
+
+    brushSelectionInstance.getBrushRange = () => {
+      return {
+        start: {
+          rowIndex: 0,
+          colIndex: 0,
+          x: 0,
+          y: 0,
+        },
+        end: {
+          rowIndex: 5,
+          colIndex: 5,
+          x: 200,
+          y: 200,
+        },
+        width: 200,
+        height: 200,
+      };
+    };
+
+    (brushSelectionInstance as any).updateSelectedCells();
+
+    (mockRootInteraction.getAllColHeaderCells() || [])
+      .filter((cell, i) => i < 5)
+      .forEach((cell) => {
+        expect(cell.updateByState).toHaveBeenCalled();
+      });
+
+    mockRootInteraction.getAllCells();
+
+    (mockRootInteraction.getAllRowHeaderCells() || [])
+      .filter((cell, i) => i < 5)
+      .forEach((cell) => {
+        expect(cell.updateByState).toHaveBeenCalled();
+      });
+  });
   test('should get start brush point when mouse down', () => {
     emitEvent(S2Event.DATA_CELL_MOUSE_DOWN, {
       layerX: 10,
@@ -260,7 +301,7 @@ describe('Interaction Brush Selection Tests', () => {
 
     mockSpreadSheetInstance.on(S2Event.GLOBAL_SELECTED, selectedFn);
     mockSpreadSheetInstance.on(
-      S2Event.DATE_CELL_BRUSH_SELECTION,
+      S2Event.DATA_CELL_BRUSH_SELECTION,
       brushSelectionFn,
     );
 
@@ -469,11 +510,17 @@ describe('Interaction Brush Selection Tests', () => {
     ).toBe(200);
 
     (facet as TableFacet).frozenGroupInfo = {
-      col: {
+      [FrozenGroup.FROZEN_COL]: {
         width: 100,
       },
-      trailingCol: {
+      [FrozenGroup.FROZEN_TRAILING_COL]: {
         width: 100,
+      },
+      [FrozenGroup.FROZEN_ROW]: {
+        height: 0,
+      },
+      [FrozenGroup.FROZEN_TRAILING_ROW]: {
+        height: 0,
       },
     };
 
@@ -514,10 +561,16 @@ describe('Interaction Brush Selection Tests', () => {
     ).toBe(320);
 
     (facet as TableFacet).frozenGroupInfo = {
-      row: {
+      [FrozenGroup.FROZEN_COL]: {
+        width: 0,
+      },
+      [FrozenGroup.FROZEN_TRAILING_COL]: {
+        width: 0,
+      },
+      [FrozenGroup.FROZEN_ROW]: {
         height: 100,
       },
-      trailingRow: {
+      [FrozenGroup.FROZEN_TRAILING_ROW]: {
         height: 100,
       },
     };
@@ -550,16 +603,16 @@ describe('Interaction Brush Selection Tests', () => {
     expect(validateYIndex(9)).toBe(9);
 
     (mockSpreadSheetInstance.facet as TableFacet).frozenGroupInfo = {
-      col: {
+      [FrozenGroup.FROZEN_COL]: {
         range: [0, 1],
       },
-      trailingCol: {
+      [FrozenGroup.FROZEN_TRAILING_COL]: {
         range: [8, 9],
       },
-      row: {
+      [FrozenGroup.FROZEN_ROW]: {
         range: [0, 1],
       },
-      trailingRow: {
+      [FrozenGroup.FROZEN_TRAILING_ROW]: {
         range: [8, 9],
       },
     };

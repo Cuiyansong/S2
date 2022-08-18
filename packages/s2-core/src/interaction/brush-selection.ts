@@ -1,36 +1,43 @@
-import { Event as CanvasEvent, IShape, Point } from '@antv/g-canvas';
-import { getCellMeta } from 'src/utils/interaction/select-event';
-import {
-  getScrollOffsetForCol,
-  getScrollOffsetForRow,
-} from 'src/utils/interaction/';
+import type { Event as CanvasEvent, IShape, Point } from '@antv/g-canvas';
 import { cloneDeep, isEmpty, isNil, throttle } from 'lodash';
-import { BaseEventImplement } from './base-event';
-import { BaseEvent } from './base-interaction';
-import { InterceptType, S2Event, ScrollDirection } from '@/common/constant';
+import { DataCell } from '../cell';
 import {
+  FRONT_GROUND_GROUP_BRUSH_SELECTION_Z_INDEX,
+  InterceptType,
+  S2Event,
+  ScrollDirection,
+} from '../common/constant';
+import {
+  BRUSH_AUTO_SCROLL_INITIAL_CONFIG,
   InteractionBrushSelectionStage,
   InteractionStateName,
-  BRUSH_AUTO_SCROLL_INITIAL_CONFIG,
-} from '@/common/constant/interaction';
-import {
+} from '../common/constant/interaction';
+import type {
+  BrushAutoScrollConfig,
   BrushPoint,
   BrushRange,
   OriginalEvent,
   ViewMeta,
-  BrushAutoScrollConfig,
-} from '@/common/interface';
-import { DataCell } from '@/cell';
-import { FRONT_GROUND_GROUP_BRUSH_SELECTION_Z_INDEX } from '@/common/constant';
-import { getActiveCellsTooltipData } from '@/utils/tooltip';
+} from '../common/interface';
+import type { TableFacet } from '../facet';
 import {
   isFrozenCol,
   isFrozenRow,
   isFrozenTrailingCol,
   isFrozenTrailingRow,
-} from '@/facet/utils';
-import { getValidFrozenOptions } from '@/utils/layout/frozen';
-import { TableFacet } from '@/facet';
+} from '../facet/utils';
+import {
+  getScrollOffsetForCol,
+  getScrollOffsetForRow,
+} from '../utils/interaction/';
+import {
+  getCellMeta,
+  updateRowColCells,
+} from '../utils/interaction/select-event';
+import { getValidFrozenOptions } from '../utils/layout/frozen';
+import { getActiveCellsTooltipData } from '../utils/tooltip';
+import type { BaseEventImplement } from './base-event';
+import { BaseEvent } from './base-interaction';
 
 /**
  * Panel area's brush selection interaction
@@ -186,14 +193,18 @@ export class BrushSelection extends BaseEvent implements BaseEventImplement {
     const { facet } = this.spreadsheet;
     const frozenInfo = (facet as TableFacet).frozenGroupInfo;
     let min = 0;
-    if (frozenInfo && frozenInfo.row.range) {
-      min = frozenInfo.row.range[1] + 1;
+    const frozenRowRange = frozenInfo?.frozenRow?.range;
+    if (frozenRowRange) {
+      min = frozenRowRange[1] + 1;
     }
-    if (yIndex < min) return null;
+    if (yIndex < min) {
+      return null;
+    }
 
     let max = facet.getCellRange().end;
-    if (frozenInfo && frozenInfo.trailingRow.range) {
-      max = frozenInfo.trailingRow.range[0] - 1;
+    const frozenTrailingRowRange = frozenInfo?.frozenTrailingRow?.range;
+    if (frozenTrailingRowRange) {
+      max = frozenTrailingRowRange[0] - 1;
     }
     if (yIndex > max) {
       return null;
@@ -207,14 +218,18 @@ export class BrushSelection extends BaseEvent implements BaseEventImplement {
     const frozenInfo = (facet as TableFacet).frozenGroupInfo;
 
     let min = 0;
-    if (frozenInfo && frozenInfo.col.range) {
-      min = frozenInfo.col.range[1] + 1;
+    const frozenColRange = frozenInfo?.frozenCol?.range;
+    if (frozenColRange) {
+      min = frozenColRange[1] + 1;
     }
-    if (xIndex < min) return null;
+    if (xIndex < min) {
+      return null;
+    }
 
     let max = facet.layoutResult.colLeafNodes.length - 1;
-    if (frozenInfo && frozenInfo.trailingCol.range) {
-      max = frozenInfo.trailingCol.range[0] - 1;
+    const frozenTrailingColRange = frozenInfo?.frozenTrailingCol?.range;
+    if (frozenTrailingColRange) {
+      max = frozenTrailingColRange[0] - 1;
     }
     if (xIndex > max) {
       return null;
@@ -482,7 +497,12 @@ export class BrushSelection extends BaseEvent implements BaseEventImplement {
   private bindMouseUp() {
     // 使用全局的 mouseup, 而不是 canvas 的 mouse up 防止刷选过程中移出表格区域时无法响应事件
     this.spreadsheet.on(S2Event.GLOBAL_MOUSE_UP, (event) => {
+      if (this.brushSelectionStage !== InteractionBrushSelectionStage.DRAGGED) {
+        this.resetDrag();
+        return;
+      }
       this.clearAutoScroll();
+
       if (this.isValidBrushSelection()) {
         this.spreadsheet.interaction.addIntercepts([
           InterceptType.BRUSH_SELECTION,
@@ -493,6 +513,13 @@ export class BrushSelection extends BaseEvent implements BaseEventImplement {
           getActiveCellsTooltipData(this.spreadsheet),
         );
       }
+      if (
+        this.spreadsheet.interaction.getCurrentStateName() ===
+        InteractionStateName.PREPARE_SELECT
+      ) {
+        this.spreadsheet.interaction.reset();
+      }
+
       this.resetDrag();
     });
 
@@ -514,9 +541,6 @@ export class BrushSelection extends BaseEvent implements BaseEventImplement {
   }
 
   private isValidBrushSelection() {
-    if (this.brushSelectionStage !== InteractionBrushSelectionStage.DRAGGED) {
-      return false;
-    }
     const { start, end } = this.getBrushRange();
     const isMovedEnoughDistance =
       end.x - start.x > this.brushSelectionMinimumMoveDistance ||
@@ -553,8 +577,8 @@ export class BrushSelection extends BaseEvent implements BaseEventImplement {
     const { scrollY, scrollX } = this.spreadsheet.facet.getScrollOffset();
     const originalEvent = event.originalEvent as unknown as OriginalEvent;
     const point: Point = {
-      x: originalEvent?.layerX,
-      y: originalEvent?.layerY,
+      x: event?.x ?? originalEvent?.layerX,
+      y: event?.y ?? originalEvent?.layerY,
     };
     const cell = this.spreadsheet.getCell(event.target);
     const { colIndex, rowIndex } = cell.getMeta();
@@ -662,16 +686,19 @@ export class BrushSelection extends BaseEvent implements BaseEventImplement {
         colIndex < range.end.colIndex + 1;
         colIndex++
       ) {
-        const colId = colLeafNodes[colIndex].id;
+        const colId = String(colLeafNodes[colIndex].id);
         let rowId = String(rowIndex);
         if (rowLeafNodes.length) {
-          rowId = rowLeafNodes[rowIndex].id;
+          rowId = String(rowLeafNodes[rowIndex].id);
         }
         metas.push({
           colIndex,
           rowIndex,
           id: `${rowId}-${colId}`,
           type: 'dataCell',
+          rowId,
+          colId,
+          spreadsheet: this.spreadsheet,
         });
       }
     }
@@ -680,16 +707,24 @@ export class BrushSelection extends BaseEvent implements BaseEventImplement {
 
   // 最终刷选的cell
   private updateSelectedCells() {
-    const { interaction } = this.spreadsheet;
+    const { interaction, options } = this.spreadsheet;
 
     const range = this.getBrushRange();
 
+    const selectedCellMetas = this.getSelectedCellMetas(range);
     interaction.changeState({
-      cells: this.getSelectedCellMetas(range),
+      cells: selectedCellMetas,
       stateName: InteractionStateName.SELECTED,
     });
+
+    if (options.interaction.selectedCellHighlight) {
+      selectedCellMetas.forEach((meta) => {
+        updateRowColCells(meta);
+      });
+    }
+
     this.spreadsheet.emit(
-      S2Event.DATE_CELL_BRUSH_SELECTION,
+      S2Event.DATA_CELL_BRUSH_SELECTION,
       this.brushRangeDataCells,
     );
     this.spreadsheet.emit(S2Event.GLOBAL_SELECTED, this.brushRangeDataCells);

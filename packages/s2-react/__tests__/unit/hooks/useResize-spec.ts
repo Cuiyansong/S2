@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react-hooks';
-import { PivotSheet, S2Options, SpreadSheet } from '@antv/s2';
+import { PivotSheet, type S2Options, SpreadSheet } from '@antv/s2';
 import { getContainer } from 'tests/util/helpers';
 import * as mockDataConfig from 'tests/data/simple-data.json';
 import { useResize } from '@/hooks';
@@ -23,6 +23,10 @@ describe('useResize tests', () => {
     jest.spyOn(s2, 'buildFacet' as any).mockImplementation(() => {});
   });
 
+  afterEach(() => {
+    s2.destroy();
+  });
+
   test('should rerender when option width or height changed and adaptive disable', () => {
     const renderSpy = jest.spyOn(s2, 'render').mockImplementation(() => {});
 
@@ -32,8 +36,6 @@ describe('useResize tests', () => {
         wrapper,
         s2,
         adaptive: false,
-        optionWidth: s2Options.width,
-        optionHeight: s2Options.height,
       }),
     );
 
@@ -70,8 +72,6 @@ describe('useResize tests', () => {
         wrapper,
         s2,
         adaptive: true,
-        optionWidth: s2Options.width,
-        optionHeight: s2Options.height,
       }),
     );
 

@@ -1,8 +1,8 @@
-import { Event as GEvent } from '@antv/g-canvas';
+import type { Event as GEvent } from '@antv/g-canvas';
 import { createFakeSpreadSheet } from 'tests/util/helpers';
 import { RowTextClick } from '@/interaction/base-interaction/click';
-import { Data, S2DataConfig, S2Options } from '@/common/interface';
-import { SpreadSheet } from '@/sheet-type';
+import type { Data, S2DataConfig, S2Options } from '@/common/interface';
+import type { SpreadSheet } from '@/sheet-type';
 import { S2Event } from '@/common/constant';
 
 jest.mock('@/interaction/event-controller');
@@ -56,7 +56,7 @@ describe('Interaction Row Text Click Tests', () => {
       target: {
         attrs: {
           appendInfo: {
-            isRowHeaderText: true,
+            isLinkFieldText: true,
             cellData,
           },
         },
@@ -99,7 +99,7 @@ describe('Interaction Row Text Click Tests', () => {
       target: {
         attrs: {
           appendInfo: {
-            isRowHeaderText: true,
+            isLinkFieldText: true,
             cellData,
           },
         },

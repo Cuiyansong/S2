@@ -1,29 +1,45 @@
-import { Event as CanvasEvent } from '@antv/g-canvas';
-import { first, map, includes, find, isEqual, get, forEach } from 'lodash';
-import { shouldShowActionIcons } from 'src/utils/cell/header-cell';
-import { BaseCell } from '@/cell/base-cell';
-import { InteractionStateName } from '@/common/constant/interaction';
-import { GuiIcon } from '@/common/icons';
+import type { Event as CanvasEvent, IShape } from '@antv/g-canvas';
 import {
-  HeaderActionIcon,
+  find,
+  first,
+  forEach,
+  get,
+  includes,
+  isEmpty,
+  isEqual,
+  map,
+} from 'lodash';
+import { BaseCell } from '../cell/base-cell';
+import {
+  CellTypes,
+  EXTRA_COLUMN_FIELD,
+  EXTRA_FIELD,
+  S2Event,
+} from '../common/constant';
+import { InteractionStateName } from '../common/constant/interaction';
+import { GuiIcon } from '../common/icons';
+import type {
   CellMeta,
   FormatResult,
   HeaderActionIconOptions,
-} from '@/common/interface';
-import { BaseHeaderConfig } from '@/facet/header/base';
-import { Node } from '@/facet/layout/node';
-import { includeCell } from '@/utils/cell/data-cell';
-import { S2Event } from '@/common/constant';
-import { CellTypes } from '@/common/constant';
-import { getSortTypeIcon } from '@/utils/sort-action';
-import { SortParam } from '@/common/interface';
+  SortParam,
+} from '../common/interface';
+import type { BaseHeaderConfig } from '../facet/header/base';
+import type { Node } from '../facet/layout/node';
+import { includeCell } from '../utils/cell/data-cell';
+import { getActionIconConfig } from '../utils/cell/header-cell';
+import { getSortTypeIcon } from '../utils/sort-action';
 
 export abstract class HeaderCell extends BaseCell<Node> {
   protected headerConfig: BaseHeaderConfig;
 
   protected treeIcon: GuiIcon | undefined;
 
+  protected treeLeafNodeAlignDot: IShape | undefined;
+
   protected actionIcons: GuiIcon[];
+
+  protected hasDefaultHiddenIcon: boolean;
 
   protected handleRestOptions(...[headerConfig]: [BaseHeaderConfig]) {
     this.headerConfig = { ...headerConfig };
@@ -31,7 +47,7 @@ export abstract class HeaderCell extends BaseCell<Node> {
     const sortParams = this.spreadsheet.dataCfg.sortParams;
     const isSortCell = this.isSortCell(); // 改单元格是否为需要展示排序 icon 单元格
     const sortParam: SortParam = find(
-      sortParams.reverse(),
+      [...sortParams].reverse(),
       (item) =>
         isSortCell &&
         item?.sortByMeasure === value &&
@@ -47,41 +63,45 @@ export abstract class HeaderCell extends BaseCell<Node> {
 
   protected initCell() {
     this.actionIcons = [];
+    this.hasDefaultHiddenIcon = false;
   }
 
-  // 这个的 getFormattedFieldValue 主要是 row 和 col header 的格式化，这里不需要传递 data info
   protected getFormattedFieldValue(): FormatResult {
     const { label } = this.meta;
-    let content = label;
 
     const formatter = this.spreadsheet.dataSet.getFieldFormatter(
       this.meta.field,
     );
 
-    if (formatter) {
-      content = formatter(label);
-    }
+    const isTableMode = this.spreadsheet.isTableMode();
+    // 如果是 table mode，列头不需要被格式化
+    const formattedValue =
+      formatter && !isTableMode
+        ? formatter(label, undefined, this.meta)
+        : label;
 
     return {
-      formattedValue: content,
+      formattedValue,
       value: label,
     };
   }
 
-  protected showActionIcons(actionIconCfg: HeaderActionIcon) {
-    return shouldShowActionIcons(actionIconCfg, this.meta, this.cellType);
-  }
-
+  /**
+   * 获取操作 icons
+   */
   protected getActionIconCfg() {
-    return find(
+    return getActionIconConfig(
       this.spreadsheet.options.headerActionIcons,
-      (headerActionIcon: HeaderActionIcon) =>
-        this.showActionIcons(headerActionIcon),
+      this.meta,
+      this.cellType,
     );
   }
 
   protected showSortIcon() {
-    if (this.spreadsheet.options.showDefaultHeaderActionIcon) {
+    const { options, dataCfg } = this.spreadsheet;
+    const isEmptyValues = isEmpty(dataCfg.fields.values);
+
+    if (options.showDefaultHeaderActionIcon && !isEmptyValues) {
       const { sortParam } = this.headerConfig;
       const query = this.meta.query;
       // sortParam的query，和type本身可能会 undefined
@@ -92,6 +112,7 @@ export abstract class HeaderCell extends BaseCell<Node> {
         sortParam?.type !== 'none'
       );
     }
+
     return false;
   }
 
@@ -138,12 +159,11 @@ export abstract class HeaderCell extends BaseCell<Node> {
 
   // 是否设置为默认隐藏 action icon，默认隐藏的交互为 hover 后可见
   protected hasDefaultHideActionIcon() {
-    const actionIconCfg = this.getActionIconCfg();
-    return actionIconCfg?.defaultHide;
+    return this.hasDefaultHiddenIcon;
   }
 
   protected addActionIcon(options: HeaderActionIconOptions) {
-    const { x, y, iconName, defaultHide, action } = options;
+    const { x, y, iconName, defaultHide, action, onClick, onHover } = options;
     const { icon: iconTheme, text: textTheme } = this.getStyle();
     // 未配置 icon 颜色, 默认使用文字颜色
     const actionIconColor = iconTheme?.fill || textTheme?.fill;
@@ -161,10 +181,25 @@ export abstract class HeaderCell extends BaseCell<Node> {
     icon.set('visible', !defaultHide);
     icon.on('mouseover', (event: CanvasEvent) => {
       this.spreadsheet.emit(S2Event.GLOBAL_ACTION_ICON_HOVER, event);
+      onHover?.({
+        hovering: true,
+        iconName,
+        meta: this.meta,
+        event,
+      });
+    });
+    icon.on('mouseleave', (event: CanvasEvent) => {
+      this.spreadsheet.emit(S2Event.GLOBAL_ACTION_ICON_HOVER_OFF, event);
+      onHover?.({
+        hovering: false,
+        iconName,
+        meta: this.meta,
+        event,
+      });
     });
     icon.on('click', (event: CanvasEvent) => {
       this.spreadsheet.emit(S2Event.GLOBAL_ACTION_ICON_CLICK, event);
-      action?.({
+      (onClick || action)?.({
         iconName,
         meta: this.meta,
         event,
@@ -186,7 +221,7 @@ export abstract class HeaderCell extends BaseCell<Node> {
       return;
     }
 
-    const { iconNames, action, defaultHide } = actionIconCfg;
+    const { iconNames, action, onClick, onHover, defaultHide } = actionIconCfg;
 
     const position = this.getIconPosition(iconNames.length);
 
@@ -194,7 +229,24 @@ export abstract class HeaderCell extends BaseCell<Node> {
     forEach(iconNames, (iconName, i) => {
       const x = position.x + i * size + i * margin.left;
       const y = position.y;
-      this.addActionIcon({ iconName, x, y, defaultHide, action });
+
+      const iconDefaultHide =
+        typeof defaultHide === 'function'
+          ? defaultHide(this.meta, iconName)
+          : defaultHide;
+      if (iconDefaultHide) {
+        this.hasDefaultHiddenIcon = true;
+      }
+
+      this.addActionIcon({
+        iconName,
+        x,
+        y,
+        defaultHide: iconDefaultHide,
+        action,
+        onClick,
+        onHover,
+      });
     });
   }
 
@@ -206,6 +258,30 @@ export abstract class HeaderCell extends BaseCell<Node> {
       return isMaxLevel && this.cellType === CellTypes.COL_CELL;
     }
     return isMaxLevel && this.cellType === CellTypes.ROW_CELL;
+  }
+
+  protected handleByStateName(
+    cells: CellMeta[],
+    stateName: InteractionStateName,
+  ) {
+    if (includeCell(cells, this)) {
+      this.updateByState(stateName);
+    }
+  }
+
+  protected handleSearchResult(cells: CellMeta[]) {
+    if (!includeCell(cells, this)) {
+      return;
+    }
+    const targetCell = find(
+      cells,
+      (cell: CellMeta) => cell?.isTarget,
+    ) as CellMeta;
+    if (targetCell.id === this.getMeta().id) {
+      this.updateByState(InteractionStateName.HIGHLIGHT);
+    } else {
+      this.updateByState(InteractionStateName.SEARCH_RESULT);
+    }
   }
 
   protected handleHover(cells: CellMeta[]) {
@@ -231,10 +307,12 @@ export abstract class HeaderCell extends BaseCell<Node> {
   public toggleActionIcon(id: string) {
     if (this.getMeta().id === id) {
       const visibleActionIcons: GuiIcon[] = [];
-      // 理论上每次只会显示一个 header cell 的所有 actionIcon（大部分情况下只会有一个）
       forEach(this.actionIcons, (icon) => {
-        icon.set('visible', true);
-        visibleActionIcons.push(icon);
+        // 仅存储当前不可见的 icon
+        if (!icon.get('visible')) {
+          icon.set('visible', true);
+          visibleActionIcons.push(icon);
+        }
       });
       this.spreadsheet.store.set('visibleActionIcons', visibleActionIcons);
     }
@@ -245,7 +323,9 @@ export abstract class HeaderCell extends BaseCell<Node> {
     const stateInfo = interaction?.getState();
     const cells = interaction?.getCells();
 
-    if (!first(cells)) return;
+    if (!first(cells)) {
+      return;
+    }
 
     switch (stateInfo?.stateName) {
       case InteractionStateName.SELECTED:
@@ -255,7 +335,11 @@ export abstract class HeaderCell extends BaseCell<Node> {
       case InteractionStateName.HOVER:
         this.handleHover(cells);
         break;
+      case InteractionStateName.SEARCH_RESULT:
+        this.handleSearchResult(cells);
+        break;
       default:
+        this.handleByStateName(cells, stateInfo?.stateName);
         break;
     }
   }
@@ -266,5 +350,9 @@ export abstract class HeaderCell extends BaseCell<Node> {
 
   public hideInteractionShape() {
     super.hideInteractionShape();
+  }
+
+  public isMeasureField() {
+    return [EXTRA_FIELD, EXTRA_COLUMN_FIELD].includes(this.meta.field);
   }
 }

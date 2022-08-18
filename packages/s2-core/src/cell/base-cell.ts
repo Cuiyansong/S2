@@ -1,29 +1,40 @@
-import { BBox, Group, IShape, Point, SimpleBBox } from '@antv/g-canvas';
-import { each, get, includes, isBoolean, isNumber, keys, pickBy } from 'lodash';
+import type { BBox, IShape, Point, SimpleBBox } from '@antv/g-canvas';
+import { Group } from '@antv/g-canvas';
+import {
+  each,
+  get,
+  includes,
+  isBoolean,
+  isFunction,
+  isNumber,
+  keys,
+  pickBy,
+} from 'lodash';
 import {
   CellTypes,
   InteractionStateName,
   SHAPE_ATTRS_MAP,
   SHAPE_STYLE_MAP,
-} from '@/common/constant';
-import {
+} from '../common/constant';
+import type {
   CellThemes,
+  DefaultCellTheme,
   FormatResult,
-  ResizeActiveOptions,
+  ResizeInteractionOptions,
   ResizeArea,
   S2CellType,
   S2Theme,
   StateShapeLayer,
   TextTheme,
-} from '@/common/interface';
-import { SpreadSheet } from '@/sheet-type';
+} from '../common/interface';
+import type { SpreadSheet } from '../sheet-type';
 import {
   getContentArea,
   getTextAndFollowingIconPosition,
-} from '@/utils/cell/cell';
-import { renderLine, renderText, updateShapeAttr } from '@/utils/g-renders';
-import { isMobile } from '@/utils/is-mobile';
-import { getEllipsisText, measureTextWidth } from '@/utils/text';
+} from '../utils/cell/cell';
+import { renderLine, renderText, updateShapeAttr } from '../utils/g-renders';
+import { isMobile } from '../utils/is-mobile';
+import { getEllipsisText, getEmptyPlaceholder } from '../utils/text';
 
 export abstract class BaseCell<T extends SimpleBBox> extends Group {
   // cell's data meta info
@@ -140,18 +151,26 @@ export abstract class BaseCell<T extends SimpleBBox> extends Group {
 
   public getStyle<K extends keyof S2Theme = keyof CellThemes>(
     name?: K,
-  ): S2Theme[K] {
+  ): DefaultCellTheme | S2Theme[K] {
     return this.theme[name || this.cellType];
   }
 
   protected getResizeAreaStyle(): ResizeArea {
-    return this.getStyle('resizeArea');
+    return this.getStyle('resizeArea') as ResizeArea;
   }
 
-  protected shouldDrawResizeAreaByType(type: keyof ResizeActiveOptions) {
-    const resize = this.spreadsheet.options?.interaction?.resize;
+  protected shouldDrawResizeAreaByType(
+    type: keyof ResizeInteractionOptions,
+    cell: S2CellType,
+  ) {
+    const { resize } = this.spreadsheet.options.interaction;
+
     if (isBoolean(resize)) {
       return resize;
+    }
+
+    if (isFunction(resize.visible)) {
+      return resize.visible(cell);
     }
 
     return resize[type];
@@ -164,7 +183,9 @@ export abstract class BaseCell<T extends SimpleBBox> extends Group {
 
   // get content area that exclude padding
   public getContentArea() {
-    const { padding } = this.getStyle()?.cell || this.theme.dataCell.cell;
+    const cellStyle = (this.getStyle() ||
+      this.theme.dataCell) as DefaultCellTheme;
+    const { padding } = cellStyle?.cell;
     return getContentArea(this.getCellArea(), padding);
   }
 
@@ -176,11 +197,17 @@ export abstract class BaseCell<T extends SimpleBBox> extends Group {
     const { formattedValue } = this.getFormattedFieldValue();
     const maxTextWidth = this.getMaxTextWidth();
     const textStyle = this.getTextStyle();
+    const {
+      options: { placeholder },
+      measureTextWidth,
+    } = this.spreadsheet;
+    const emptyPlaceholder = getEmptyPlaceholder(this, placeholder);
     const ellipsisText = getEllipsisText({
+      measureTextWidth,
       text: formattedValue,
       maxWidth: maxTextWidth,
       fontParam: textStyle,
-      placeholder: this.spreadsheet.options.placeholder,
+      placeholder: emptyPlaceholder,
     });
     this.actualText = ellipsisText;
     this.actualTextWidth = measureTextWidth(ellipsisText, textStyle);
@@ -206,13 +233,13 @@ export abstract class BaseCell<T extends SimpleBBox> extends Group {
     const device = this.spreadsheet.options.style.device;
     // 配置了链接跳转
     if (!isMobile(device)) {
-      const { minX, maxX, maxY }: BBox = this.textShape.getBBox();
+      const { minX, maxY }: BBox = this.textShape.getBBox();
       this.linkFieldShape = renderLine(
         this,
         {
           x1: minX,
           y1: maxY + 1,
-          x2: maxX,
+          x2: minX + this.actualTextWidth, // 不用 bbox 的 maxX，因为 g-base 文字宽度预估偏差较大
           y2: maxY + 1,
         },
         { stroke: linkFillColor, lineWidth: 1 },
@@ -223,7 +250,7 @@ export abstract class BaseCell<T extends SimpleBBox> extends Group {
       fill: linkFillColor,
       cursor: 'pointer',
       appendInfo: {
-        isRowHeaderText: true, // 标记为行头(明细表行头其实就是Data Cell)文本，方便做链接跳转直接识别
+        isLinkFieldText: true, // 标记为行头(明细表行头其实就是Data Cell)文本，方便做链接跳转直接识别
         cellData: this.meta,
       },
     });
@@ -244,9 +271,15 @@ export abstract class BaseCell<T extends SimpleBBox> extends Group {
         pickBy(SHAPE_ATTRS_MAP, (attrs) => includes(attrs, styleKey)),
       );
       targetShapeNames.forEach((shapeName: StateShapeLayer) => {
-        const shape = this.stateShapes.has(shapeName)
+        const isStateShape = this.stateShapes.has(shapeName);
+        const shape = isStateShape
           ? this.stateShapes.get(shapeName)
           : this[shapeName];
+
+        // stateShape 默认 visible 为 false
+        if (isStateShape && !shape.get('visible')) {
+          shape.set('visible', true);
+        }
 
         // 根据borderWidth更新borderShape大小 https://github.com/antvis/S2/pull/705
         if (
@@ -254,11 +287,14 @@ export abstract class BaseCell<T extends SimpleBBox> extends Group {
           styleKey === 'borderWidth'
         ) {
           if (isNumber(style)) {
+            const { horizontalBorderWidth, verticalBorderWidth } =
+              this.theme.dataCell.cell;
+
             const marginStyle = {
-              x: x + style / 2,
-              y: y + style / 2,
-              width: width - style - 1,
-              height: height - style - 1,
+              x: x + verticalBorderWidth / 2 + style / 2,
+              y: y + horizontalBorderWidth / 2 + style / 2,
+              width: width - verticalBorderWidth - style,
+              height: height - horizontalBorderWidth - style,
             };
             each(marginStyle, (currentStyle, currentStyleKey) => {
               updateShapeAttr(shape, currentStyleKey, currentStyle);
@@ -284,5 +320,9 @@ export abstract class BaseCell<T extends SimpleBBox> extends Group {
     updateShapeAttr(this.backgroundShape, SHAPE_STYLE_MAP.backgroundOpacity, 1);
     updateShapeAttr(this.textShape, SHAPE_STYLE_MAP.textOpacity, 1);
     updateShapeAttr(this.linkFieldShape, SHAPE_STYLE_MAP.opacity, 1);
+  }
+
+  public getTextShape() {
+    return this.textShape;
   }
 }

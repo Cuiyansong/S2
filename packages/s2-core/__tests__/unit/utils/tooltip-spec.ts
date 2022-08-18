@@ -1,20 +1,34 @@
-import { createFakeSpreadSheet } from 'tests/util/helpers';
-import { BBox } from '@antv/g-canvas';
+import {
+  createFakeSpreadSheet,
+  createMockCellInfo,
+  createPivotSheet,
+} from 'tests/util/helpers';
+import type { BBox } from '@antv/g-canvas';
 import { omit } from 'lodash';
 import {
   getAutoAdjustPosition,
-  setContainerStyle,
+  setTooltipContainerStyle,
   getTooltipOptions,
+  getTooltipData,
 } from '@/utils/tooltip';
 import {
   CellTypes,
+  EXTRA_FIELD,
+  getCellMeta,
   getTooltipVisibleOperator,
-  S2CellType,
+  Node,
+  type S2CellType,
   SpreadSheet,
-  Tooltip,
+  type Tooltip,
+  type TooltipData,
   TOOLTIP_POSITION_OFFSET,
+  type Total,
+  type Totals,
+  VALUE_FIELD,
+  TOOLTIP_CONTAINER_SHOW_CLS,
+  TOOLTIP_CONTAINER_HIDE_CLS,
 } from '@/index';
-import { BaseFacet } from '@/facet/base-facet';
+import type { BaseFacet } from '@/facet/base-facet';
 
 jest.mock('@/interaction/event-controller');
 
@@ -200,7 +214,7 @@ describe('Tooltip Utils Tests', () => {
     });
   });
 
-  describe('Get Tooltip Options Tests', () => {
+  describe('Tooltip Get Options Tests', () => {
     const getCellNameByType = (cellType: CellTypes) => {
       return {
         [CellTypes.ROW_CELL]: 'row',
@@ -377,10 +391,352 @@ describe('Tooltip Utils Tests', () => {
     });
   });
 
+  describe('Tooltip Get Data Tests', () => {
+    const rowTotalOptions: Total = {
+      showGrandTotals: true,
+      showSubTotals: true,
+      reverseLayout: false,
+      reverseSubLayout: false,
+      subTotalsDimensions: ['province'],
+    };
+
+    const colTotalOptions: Total = {
+      showGrandTotals: true,
+      showSubTotals: true,
+      reverseLayout: true,
+      reverseSubLayout: true,
+      subTotalsDimensions: ['type'],
+    };
+
+    const defaultTooltipData: TooltipData = {
+      details: null,
+      headInfo: null,
+      infos: undefined,
+      interpretation: undefined,
+      name: undefined,
+      summaries: [],
+      tips: undefined,
+      description: undefined,
+    };
+
+    const getCellData = (
+      value: number,
+      isTotalCell = false,
+      extraField?: Record<string, unknown>,
+    ) => {
+      return {
+        [EXTRA_FIELD]: 'number',
+        [VALUE_FIELD]: value,
+        number: value,
+        province: '浙江省',
+        ...(isTotalCell ? {} : { city: '杭州市' }),
+        ...extraField,
+      };
+    };
+
+    const createTotalsPivotSheet = (totals: Totals) =>
+      createPivotSheet(
+        {
+          totals,
+        },
+        { useSimpleData: false },
+      );
+
+    let s2: SpreadSheet;
+
+    const getMockTooltipData = (cell: S2CellType) => {
+      jest.spyOn(s2.interaction, 'getState').mockImplementationOnce(() => ({
+        cells: [getCellMeta(cell)],
+        nodes: [cell.getMeta() as Node],
+      }));
+
+      jest
+        .spyOn(s2.interaction, 'getActiveCells')
+        .mockImplementationOnce(() => [cell]);
+
+      return getTooltipData({
+        cellInfos: [cell],
+        options: {
+          showSingleTips: true,
+        },
+        targetCell: cell,
+        spreadsheet: s2,
+      });
+    };
+
+    test('should get cell data info keys', () => {
+      s2 = createFakeSpreadSheet();
+
+      s2.facet = {
+        layoutResult: {
+          rowNodes: [],
+          colNodes: [],
+        },
+      } as BaseFacet;
+
+      const cell = createMockCellInfo('test-a');
+      const tooltipData = getTooltipData({
+        cellInfos: [],
+        options: {
+          enableFormat: true,
+          showSingleTips: false,
+        },
+        targetCell: cell.mockCell,
+        spreadsheet: s2,
+      });
+
+      expect(tooltipData).toEqual(defaultTooltipData);
+    });
+
+    test.each([
+      { count: 1, isTotalCell: true, name: '单选' },
+      { count: 4, isTotalCell: false, name: '多选' },
+    ])(
+      'should get data cell summary data info for %o',
+      ({ count, isTotalCell }) => {
+        s2 = createTotalsPivotSheet({
+          row: rowTotalOptions,
+          col: colTotalOptions,
+        });
+        s2.render();
+
+        const dataCells = s2.interaction.getPanelGroupAllDataCells();
+        const selectedCells = isTotalCell
+          ? [
+              dataCells.find((cell) => {
+                const meta = cell.getMeta();
+                return meta.isTotals;
+              }),
+            ]
+          : dataCells
+              .filter((cell) => {
+                const meta = cell.getMeta();
+                return !meta.isTotals;
+              })
+              .slice(0, count);
+
+        jest
+          .spyOn(s2.interaction, 'getActiveCells')
+          .mockImplementationOnce(() => selectedCells);
+
+        const tooltipData = getTooltipData({
+          cellInfos: [selectedCells],
+          options: {
+            showSingleTips: false,
+          },
+          targetCell: null,
+          spreadsheet: s2,
+        });
+
+        const baseCellInfo = {
+          province: '浙江省',
+          sub_type: '桌子',
+          type: '家具',
+        };
+        const value = isTotalCell ? 15420 : 18375;
+        const selectedData = isTotalCell
+          ? [getCellData(15420)]
+          : [
+              getCellData(7789, false, {
+                ...baseCellInfo,
+                city: '杭州市',
+              }),
+              getCellData(2367, false, {
+                ...baseCellInfo,
+                city: '绍兴市',
+              }),
+              getCellData(3877, false, {
+                ...baseCellInfo,
+                city: '宁波市',
+              }),
+              getCellData(4342, false, {
+                ...baseCellInfo,
+                city: '舟山市',
+              }),
+            ];
+
+        expect(tooltipData.summaries).toStrictEqual([
+          {
+            name: '数量',
+            value,
+            selectedData,
+          },
+        ]);
+
+        s2.destroy();
+      },
+    );
+
+    test.each([{ isTotalCell: true }, { isTotalCell: false }])(
+      'should get %o row cell summary data info',
+      ({ isTotalCell }) => {
+        s2 = createTotalsPivotSheet({
+          row: rowTotalOptions,
+        });
+        s2.render();
+
+        const rowCell = s2.interaction.getAllRowHeaderCells().find((cell) => {
+          const meta = cell.getMeta();
+          return isTotalCell ? meta.isTotals : !meta.isTotals;
+        });
+
+        const tooltipData = getMockTooltipData(rowCell);
+
+        expect(tooltipData).toStrictEqual({
+          ...defaultTooltipData,
+          description: isTotalCell ? undefined : '省份说明。。',
+          summaries: [
+            {
+              name: '数量',
+              value: isTotalCell ? 43098 : 15420,
+              selectedData: [
+                getCellData(isTotalCell ? 18375 : 7789, isTotalCell, {
+                  sub_type: '桌子',
+                  type: '家具',
+                }),
+                getCellData(isTotalCell ? 14043 : 5343, isTotalCell, {
+                  sub_type: '沙发',
+                  type: '家具',
+                }),
+                getCellData(isTotalCell ? 4826 : 945, isTotalCell, {
+                  sub_type: '笔',
+                  type: '办公用品',
+                }),
+                getCellData(isTotalCell ? 5854 : 1343, isTotalCell, {
+                  sub_type: '纸张',
+                  type: '办公用品',
+                }),
+              ],
+            },
+          ],
+        });
+
+        s2.destroy();
+      },
+    );
+
+    test('should get grand totals row cell summary data', () => {
+      s2 = createTotalsPivotSheet({
+        row: rowTotalOptions,
+      });
+      s2.render();
+
+      const grandTotalRowCell = s2.interaction
+        .getAllRowHeaderCells()
+        .find((cell) => {
+          const meta = cell.getMeta();
+          return meta.isGrandTotals;
+        });
+
+      const tooltipData = getMockTooltipData(grandTotalRowCell);
+
+      expect(tooltipData.summaries[0].value).toStrictEqual(78868);
+
+      s2.destroy();
+    });
+
+    // https://github.com/antvis/S2/issues/1137
+    test.each([{ isTotalCell: true }, { isTotalCell: false }])(
+      'should get without row cell sub and grand totals %o col cell summary data',
+      ({ isTotalCell }) => {
+        s2 = createTotalsPivotSheet({
+          col: colTotalOptions,
+          row: rowTotalOptions,
+        });
+        s2.render();
+
+        const colLeafCell = s2.interaction
+          .getAllColHeaderCells()
+          .find((cell) => {
+            const meta = cell.getMeta();
+            return (
+              (isTotalCell ? meta.isTotals : !meta.isTotals) && meta.isLeaf
+            );
+          });
+
+        const tooltipData = getMockTooltipData(colLeafCell);
+
+        const value = isTotalCell ? 78868 : 26193;
+        expect(tooltipData.summaries[0].value).toStrictEqual(value);
+
+        s2.destroy();
+      },
+    );
+
+    describe('Tooltip Description Tests', () => {
+      afterEach(() => {
+        s2.destroy();
+      });
+
+      test('should get row cell description', () => {
+        s2 = createTotalsPivotSheet(null);
+        s2.render();
+
+        const rowCell = s2.interaction.getAllRowHeaderCells()[0];
+
+        const tooltipData = getMockTooltipData(rowCell);
+
+        expect(tooltipData.description).toEqual('省份说明。。');
+      });
+
+      test('should get col cell descriptions', () => {
+        s2 = createTotalsPivotSheet(null);
+        s2.render();
+
+        const colCell = s2.interaction.getAllColHeaderCells()[0];
+
+        const tooltipData = getMockTooltipData(colCell);
+
+        expect(tooltipData.description).toEqual('类别说明。。');
+      });
+
+      test('should get data cell description', () => {
+        s2 = createTotalsPivotSheet(null);
+        s2.render();
+
+        const dataCell = s2.interaction.getPanelGroupAllDataCells()[0];
+
+        const tooltipData = getMockTooltipData(dataCell);
+
+        expect(tooltipData.description).toEqual('数量说明。。');
+      });
+
+      test.each(['isTotals', 'isSubTotals', 'isGrandTotals'])(
+        'should not get total cell description with %s',
+        (key) => {
+          s2 = createTotalsPivotSheet({
+            col: colTotalOptions,
+            row: rowTotalOptions,
+          });
+          s2.render();
+
+          const colTotalCell = s2.interaction
+            .getAllColHeaderCells()
+            .find((cell) => {
+              const meta = cell.getMeta();
+              return meta[key];
+            });
+
+          const rowTotalCell = s2.interaction
+            .getAllRowHeaderCells()
+            .find((cell) => {
+              const meta = cell.getMeta();
+              return meta[key];
+            });
+
+          expect(getMockTooltipData(colTotalCell).description).toBeUndefined();
+          expect(getMockTooltipData(rowTotalCell).description).toBeUndefined();
+
+          s2.destroy();
+        },
+      );
+    });
+  });
+
   test('should set container style', () => {
     const container = document.createElement('div');
 
-    setContainerStyle(container, {
+    setTooltipContainerStyle(container, {
       style: {
         width: '100px',
         pointerEvents: 'none',
@@ -393,11 +749,40 @@ describe('Tooltip Utils Tests', () => {
 
   test('should set container class name', () => {
     const container = document.createElement('div');
+    container.className = 'a';
 
-    setContainerStyle(container, {
-      className: 'test',
+    setTooltipContainerStyle(container, {
+      className: ['test'],
     });
 
-    expect(container.className).toEqual('test');
+    expect(container.classList.contains('test')).toBeTruthy();
+
+    setTooltipContainerStyle(container, {
+      className: ['test', null, undefined, ''],
+    });
+
+    expect(container.classList.contains('null')).toBeFalsy();
+    expect(container.classList.contains('undefined')).toBeFalsy();
+  });
+
+  test('should set container class name by visible', () => {
+    const container = document.createElement('div');
+    container.className = 'visible';
+
+    setTooltipContainerStyle(container, {
+      visible: true,
+    });
+
+    expect(container.className).toEqual(
+      `visible ${TOOLTIP_CONTAINER_SHOW_CLS}`,
+    );
+
+    setTooltipContainerStyle(container, {
+      visible: false,
+    });
+
+    expect(container.className).toEqual(
+      `visible ${TOOLTIP_CONTAINER_HIDE_CLS}`,
+    );
   });
 });

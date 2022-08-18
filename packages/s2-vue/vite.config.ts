@@ -6,6 +6,7 @@ import vueJsx from '@vitejs/plugin-vue-jsx';
 import { viteCommonjs } from '@originjs/vite-plugin-commonjs';
 import peerDepsExternal from 'rollup-plugin-peer-deps-external';
 import { visualizer } from 'rollup-plugin-visualizer';
+import svgLoader from 'vite-svg-loader';
 
 const OUT_DIR_NAME_MAP: { [key in LibraryFormats]?: string } = {
   es: 'esm',
@@ -33,6 +34,7 @@ export default defineConfig({
 
   // 打包配置
   resolve: {
+    mainFields: ['src', 'module', 'main'],
     alias: {
       lodash: 'lodash-es',
     },
@@ -45,11 +47,21 @@ export default defineConfig({
   },
   plugins: [
     peerDepsExternal(),
-    viteCommonjs(),
+    !isDevMode && viteCommonjs(),
     vue(),
+    svgLoader({
+      defaultImport: 'component',
+    }),
     vueJsx(),
     isAnalysisMode && visualizer({ gzipSize: true }),
   ].filter(Boolean) as PluginOption[],
+  css: {
+    preprocessorOptions: {
+      less: {
+        javascriptEnabled: true,
+      },
+    },
+  },
 
   build: {
     minify: isUmdFormat ? 'esbuild' : false,

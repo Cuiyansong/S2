@@ -1,9 +1,9 @@
-import { Event as CanvasEvent } from '@antv/g-canvas';
-import { get, isEmpty, find, head } from 'lodash';
-import { BaseEvent, BaseEventImplement } from '../../base-event';
-import { S2Event, InterceptType } from '@/common/constant';
-import { CellAppendInfo, Data } from '@/common/interface';
-import { Node } from '@/facet/layout/node';
+import type { Event as CanvasEvent } from '@antv/g-canvas';
+import { find, get, head, isEmpty } from 'lodash';
+import { InterceptType, S2Event } from '../../../common/constant';
+import type { CellAppendInfo, Data } from '../../../common/interface';
+import type { Node } from '../../../facet/layout/node';
+import { BaseEvent, type BaseEventImplement } from '../../base-event';
 
 /**
  * Row header click navigation interaction
@@ -18,22 +18,19 @@ export class RowTextClick extends BaseEvent implements BaseEventImplement {
       if (this.spreadsheet.interaction.hasIntercepts([InterceptType.CLICK])) {
         return;
       }
-      const appendInfo = get(
-        event.target,
-        'attrs.appendInfo',
-        {},
-      ) as CellAppendInfo;
 
-      if (appendInfo.isRowHeaderText) {
-        const { cellData } = appendInfo;
-        const key = cellData.key;
-        const rowData = this.getRowData(cellData);
-
-        this.spreadsheet.emit(S2Event.GLOBAL_LINK_FIELD_JUMP, {
-          key,
-          record: rowData,
-        });
+      if (!this.isLinkFieldText(event.target)) {
+        return;
       }
+
+      const { cellData } = this.getCellAppendInfo(event.target);
+      const key = cellData.key;
+      const rowData = this.getRowData(cellData);
+
+      this.spreadsheet.emit(S2Event.GLOBAL_LINK_FIELD_JUMP, {
+        key,
+        record: rowData,
+      });
     });
   }
 

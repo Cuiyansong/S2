@@ -1,7 +1,5 @@
-import { Node } from 'src/facet/layout/node';
-import { Event as CanvasEvent } from '@antv/g-canvas';
-import { SpreadSheet } from './spread-sheet';
-import { TableDataCell, TableRowCell } from '@/cell';
+import type { Event as CanvasEvent } from '@antv/g-canvas';
+import { TableDataCell, TableSeriesCell } from '../cell';
 import {
   InterceptType,
   KEY_GROUP_PANEL_FROZEN_BOTTOM,
@@ -12,17 +10,20 @@ import {
   KEY_GROUP_PANEL_FROZEN_TRAILING_ROW,
   PANEL_GROUP_FROZEN_GROUP_Z_INDEX,
   S2Event,
-  TOOLTIP_OPERATOR_TABLE_SORT_MENUS,
-} from '@/common/constant';
-import {
+  getTooltipOperatorTableSortMenus,
+} from '../common/constant';
+import type {
   S2Options,
   SortParam,
   SpreadSheetFacetCfg,
   TooltipOperatorOptions,
   ViewMeta,
-} from '@/common/interface';
-import { TableDataSet } from '@/data-set';
-import { TableFacet } from '@/facet';
+} from '../common/interface';
+import { TableDataSet } from '../data-set';
+import { TableFacet } from '../facet';
+import type { Node } from '../facet/layout/node';
+import { FrozenGroup } from '../group/frozen-group';
+import { SpreadSheet } from './spread-sheet';
 
 export class TableSheet extends SpreadSheet {
   public getDataSet(options: S2Options) {
@@ -83,29 +84,31 @@ export class TableSheet extends SpreadSheet {
 
   protected initPanelGroupChildren(): void {
     super.initPanelGroupChildren();
-    this.frozenRowGroup = this.panelGroup.addGroup({
-      name: KEY_GROUP_PANEL_FROZEN_ROW,
+    const commonParams = {
       zIndex: PANEL_GROUP_FROZEN_GROUP_Z_INDEX,
-    });
-    this.frozenColGroup = this.panelGroup.addGroup({
-      name: KEY_GROUP_PANEL_FROZEN_COL,
-      zIndex: PANEL_GROUP_FROZEN_GROUP_Z_INDEX,
-    });
-    this.frozenTrailingRowGroup = this.panelGroup.addGroup({
-      name: KEY_GROUP_PANEL_FROZEN_TRAILING_ROW,
-      zIndex: PANEL_GROUP_FROZEN_GROUP_Z_INDEX,
-    });
-    this.frozenTrailingColGroup = this.panelGroup.addGroup({
-      name: KEY_GROUP_PANEL_FROZEN_TRAILING_COL,
-      zIndex: PANEL_GROUP_FROZEN_GROUP_Z_INDEX,
-    });
-    this.frozenTopGroup = this.panelGroup.addGroup({
-      name: KEY_GROUP_PANEL_FROZEN_TOP,
-      zIndex: PANEL_GROUP_FROZEN_GROUP_Z_INDEX,
-    });
-    this.frozenBottomGroup = this.panelGroup.addGroup({
-      name: KEY_GROUP_PANEL_FROZEN_BOTTOM,
-      zIndex: PANEL_GROUP_FROZEN_GROUP_Z_INDEX,
+      s2: this,
+    };
+    [
+      this.frozenRowGroup,
+      this.frozenColGroup,
+      this.frozenTrailingRowGroup,
+      this.frozenTrailingColGroup,
+      this.frozenTopGroup,
+      this.frozenBottomGroup,
+    ] = [
+      KEY_GROUP_PANEL_FROZEN_ROW,
+      KEY_GROUP_PANEL_FROZEN_COL,
+      KEY_GROUP_PANEL_FROZEN_TRAILING_ROW,
+      KEY_GROUP_PANEL_FROZEN_TRAILING_COL,
+      KEY_GROUP_PANEL_FROZEN_TOP,
+      KEY_GROUP_PANEL_FROZEN_BOTTOM,
+    ].map((name) => {
+      const g = new FrozenGroup({
+        name,
+        ...commonParams,
+      });
+      this.panelGroup.add(g);
+      return g;
     });
   }
 
@@ -115,7 +118,7 @@ export class TableSheet extends SpreadSheet {
     // 默认单元格实现
     const defaultCell = (facet: ViewMeta) => {
       if (this.options.showSeriesNumber && facet.colIndex === 0) {
-        return new TableRowCell(facet, this);
+        return new TableSeriesCell(facet, this);
       }
       return new TableDataCell(facet, this);
     };
@@ -149,6 +152,8 @@ export class TableSheet extends SpreadSheet {
   public destroy() {
     super.destroy();
     this.clearFrozenGroups();
+    this.off(S2Event.RANGE_SORT);
+    this.off(S2Event.RANGE_FILTER);
   }
 
   public onSortTooltipClick = ({ key }, meta) => {
@@ -165,10 +170,11 @@ export class TableSheet extends SpreadSheet {
   public handleGroupSort(event: CanvasEvent, meta: Node) {
     event.stopPropagation();
     this.interaction.addIntercepts([InterceptType.HOVER]);
+
     const operator: TooltipOperatorOptions = {
       onClick: (params: { key: string }) =>
         this.onSortTooltipClick(params, meta),
-      menus: TOOLTIP_OPERATOR_TABLE_SORT_MENUS,
+      menus: getTooltipOperatorTableSortMenus(),
     };
 
     this.showTooltipWithInfo(event, [], {

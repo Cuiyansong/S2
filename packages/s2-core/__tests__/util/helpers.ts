@@ -4,15 +4,17 @@ import { dsvFormat } from 'd3-dsv';
 import EE from '@antv/event-emitter';
 import { Canvas } from '@antv/g-canvas';
 import { omit } from 'lodash';
+import * as simpleDataConfig from 'tests/data/simple-data.json';
+import * as dataConfig from 'tests/data/mock-dataset.json';
 import { RootInteraction } from '@/interaction/root';
 import { Store } from '@/common/store';
-import { S2CellType, S2Options, ViewMeta } from '@/common/interface';
-import { SpreadSheet } from '@/sheet-type';
-import { BaseTooltip } from '@/ui/tooltip';
+import type { S2CellType, S2Options, ViewMeta } from '@/common/interface';
+import { PivotSheet, SpreadSheet } from '@/sheet-type';
+import type { BaseTooltip } from '@/ui/tooltip';
 import { customMerge } from '@/utils/merge';
 import { DEFAULT_OPTIONS } from '@/common/constant';
-import { PanelBBox } from '@/facet/bbox/panelBBox';
-import { BaseFacet } from '@/facet';
+import type { PanelBBox } from '@/facet/bbox/panelBBox';
+import type { BaseFacet } from '@/facet';
 
 export const parseCSV = (csv: string, header?: string[]) => {
   const DELIMITER = ',';
@@ -52,6 +54,11 @@ export const createFakeSpreadSheet = () => {
 
   const s2 = new FakeSpreadSheet() as unknown as SpreadSheet;
   s2.options = DEFAULT_OPTIONS;
+  s2.dataCfg = {
+    meta: null,
+    data: [],
+    fields: {},
+  };
   s2.container = new Canvas({
     width: DEFAULT_OPTIONS.width,
     height: DEFAULT_OPTIONS.height,
@@ -74,6 +81,7 @@ export const createFakeSpreadSheet = () => {
   s2.showTooltipWithInfo = jest.fn();
   s2.isTableMode = jest.fn();
   s2.isPivotMode = jest.fn();
+  s2.getCanvasElement = () => s2.container.get('el');
 
   const interaction = new RootInteraction(s2 as unknown as SpreadSheet);
   s2.interaction = interaction;
@@ -114,8 +122,23 @@ export const createMockCellInfo = (
     type: undefined,
     x: 0,
     y: 0,
+    spreadsheet: {
+      dataCfg: {
+        meta: null,
+        data: [],
+        fields: {},
+      },
+      dataSet: {
+        getFieldDescription: jest.fn(),
+      },
+    } as unknown as SpreadSheet,
   };
-  const mockCellMeta = omit(mockCellViewMeta, ['x', 'y', 'update']);
+  const mockCellMeta = omit(mockCellViewMeta, [
+    'x',
+    'y',
+    'update',
+    'spreadsheet',
+  ]);
   const mockCell = {
     ...mockCellViewMeta,
     getMeta: () => mockCellViewMeta,
@@ -123,10 +146,22 @@ export const createMockCellInfo = (
     getActualText: jest.fn(),
     getFieldValue: jest.fn(),
     hideInteractionShape: jest.fn(),
+    updateByState: jest.fn(),
   } as unknown as S2CellType;
 
   return {
     mockCell,
     mockCellMeta,
   };
+};
+
+export const createPivotSheet = (
+  s2Options: S2Options,
+  { useSimpleData } = { useSimpleData: true },
+) => {
+  return new PivotSheet(
+    getContainer(),
+    useSimpleData ? simpleDataConfig : dataConfig,
+    s2Options,
+  );
 };

@@ -1,9 +1,9 @@
 import { createFakeSpreadSheet } from 'tests/util/helpers';
-import { Event as GEvent } from '@antv/g-canvas';
+import type { Event as GEvent } from '@antv/g-canvas';
 import { omit } from 'lodash';
 import { DataCellMultiSelection } from '@/interaction/data-cell-multi-selection';
-import { CellMeta, S2Options, ViewMeta } from '@/common/interface';
-import { SpreadSheet } from '@/sheet-type';
+import type { CellMeta, S2Options, ViewMeta } from '@/common/interface';
+import type { SpreadSheet } from '@/sheet-type';
 import {
   InteractionKeyboardKey,
   InteractionStateName,
@@ -226,5 +226,14 @@ describe('Interaction Data Cell Multi Selection Tests', () => {
     } as unknown as GEvent);
 
     expect(s2.store.get('lastClickedCell')).toEqual(mockCell00.mockCell);
+  });
+
+  test('should get correct state when reset', () => {
+    s2.emit(S2Event.GLOBAL_KEYBOARD_DOWN, {
+      key: InteractionKeyboardKey.META,
+    } as KeyboardEvent);
+    expect((dataCellMultiSelection as any).isMultiSelection).toBe(true);
+    dataCellMultiSelection.reset();
+    expect((dataCellMultiSelection as any).isMultiSelection).toBe(false);
   });
 });

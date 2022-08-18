@@ -1,661 +1,214 @@
-import type { S2DataConfig } from '@antv/s2';
+import {
+  EXTRA_COLUMN_FIELD,
+  isUpDataValue,
+  type S2DataConfig,
+  type S2Options,
+} from '@antv/s2';
+import { isNil } from 'lodash';
 
-export const singleMeasure: S2DataConfig = {
-  fields: {
-    rows: ['province', 'city'],
-    columns: ['date'],
-    values: ['number'],
-  },
-  meta: [
-    {
-      field: 'number',
-      name: '数量',
-      description: '我是数量(number)的字段描述',
-    },
-    {
-      field: 'province',
-      name: '省份',
-      description: '我是省份(province)的字段描述',
-    },
-    {
-      field: 'city',
-      name: '城市',
-      description: '我是城市(city)的字段描述',
-    },
-    {
-      field: 'date',
-      name: '日期',
-      description: '我是日期(date)的字段描述',
-    },
-  ],
-  data: [
-    {
-      number: {
-        originalValues: [[3877, 234324, 0.32]],
-        values: [[3877, 234324, '+32%']],
+const getKPIMockData = () => {
+  return {
+    'measure-a': {
+      originalValues: {
+        measure: 0.75,
+        target: 0.8,
       },
-      province: '浙江省',
-      city: '宁波市',
-      date: '2021-12',
-    },
-    {
-      number: {
-        originalValues: [[3877, -234324, -0.32]],
-        values: [[3877, -234324, '-32%']],
+      values: {
+        measure: '0.00251',
+        target: '0.76',
       },
-      province: '浙江省',
-      city: '舟山市',
-      date: '2021-12',
     },
-    {
-      number: {
-        originalValues: [[5877, -4324, 0.02]],
-        values: [[5877, -4324, '+2%']],
+    'measure-b': {
+      originalValues: {
+        measure: -0.82607,
+        target: 0.53022,
       },
-      province: '浙江省',
-      city: '杭州市',
-      date: '2021-12',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
+      values: {
+        measure: -0.82607,
+        target: 0.53022,
       },
-      province: '浙江省',
-      city: '绍兴市',
-      date: '2021-12',
     },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
+    'measure-c': {
+      originalValues: {
+        measure: 10.73922,
+        target: 0.54396,
       },
-      province: '浙江省',
-      city: '杭州市',
-      date: '2021-8',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
+      values: {
+        measure: 10.73922,
+        target: 0.54396,
       },
-      province: '浙江省',
-      city: '绍兴市',
-      date: '2021-8',
     },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
+    'measure-d': {
+      originalValues: {
+        measure: 0.5,
+        target: 0.3,
       },
-      province: '浙江省',
-      city: '宁波市',
-      date: '2021-8',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
+      values: {
+        measure: '0.5',
+        target: '0.3',
       },
-      province: '浙江省',
-      city: '舟山市',
-      date: '2021-8',
     },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
+    'measure-e': {
+      originalValues: {
+        measure: 0.09775,
+        target: 0.1978,
       },
-      province: '浙江省',
-      city: '杭州市',
-      date: '2021-7',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
+      values: {
+        measure: 0.09775,
+        target: 0.1978,
       },
-      province: '浙江省',
-      city: '绍兴市',
-      date: '2021-7',
     },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
+    'measure-f': {
+      originalValues: {
+        measure: 0.25,
+        target: 0.9,
       },
-      province: '浙江省',
-      city: '宁波市',
-      date: '2021-7',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
+      values: {
+        measure: '0.25',
+        target: '0.9',
       },
-      province: '浙江省',
-      city: '舟山市',
-      date: '2021-7',
     },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '浙江省',
-      city: '杭州市',
-      date: '2021-5',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '浙江省',
-      city: '绍兴市',
-      date: '2021-5',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '浙江省',
-      city: '宁波市',
-      date: '2021-5',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '浙江省',
-      city: '舟山市',
-      date: '2021-5',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '成都市',
-      date: '2021-12',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '绵阳市',
-      date: '2021-12',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '南充市',
-      date: '2021-12',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '乐山市',
-      date: '2021-12',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '成都市',
-      date: '2021-8',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '绵阳市',
-      date: '2021-8',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '南充市',
-      date: '2021-8',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '乐山市',
-      date: '2021-8',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '成都市',
-      date: '2021-7',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '绵阳市',
-      date: '2021-7',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '南充市',
-      date: '2021-7',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '乐山市',
-      date: '2021-7',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '成都市',
-      date: '2021-5',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '绵阳市',
-      date: '2021-5',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '南充市',
-      date: '2021-5',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '乐山市',
-      date: '2021-5',
-    },
-  ],
+    date: '2021年净增完成度',
+    [EXTRA_COLUMN_FIELD]: '净增完成度',
+  };
 };
 
-export const multiMeasure: S2DataConfig = {
-  fields: {
-    rows: ['province', 'city'],
-    columns: ['date'],
-    values: ['number', 'price'],
-  },
-  meta: [
-    {
-      field: 'date',
-      name: '时间',
-    },
-    {
-      field: 'number',
-      name: '数量',
-      description: '我是数量(number)的字段描述',
-    },
-    {
-      field: 'price',
-      name: '单价',
-      description: '我是单价(price)的字段描述',
-    },
-  ],
-  data: [
-    {
-      price: 2323,
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
+const getMiniChartMockData = () => {
+  return {
+    'custom-node-1': {
+      values: {
+        type: 'line',
+        data: [
+          { year: '2018', value: -1 },
+          { year: '2019', value: 1 },
+          { year: '2020', value: 2 },
+          { year: '2021', value: -100 },
+          { year: '2022', value: 2 },
+        ],
+        encode: {
+          x: 'year',
+          y: 'value',
+        },
       },
-      province: '浙江省',
-      city: '宁波市',
-      date: '2021-12',
     },
-    {
-      price: 2323,
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
+    'measure-a': {
+      values: {
+        type: 'line',
+        data: [
+          { year: '2018', value: 100 },
+          { year: '2019', value: 100 },
+          { year: '2020', value: 100 },
+          { year: '2021', value: 100 },
+          { year: '2022', value: 100 },
+        ],
+        encode: {
+          x: 'year',
+          y: 'value',
+        },
       },
-      province: '浙江省',
-      city: '舟山市',
-      date: '2021-12',
     },
-    {
-      price: 2323,
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
+    'measure-b': {
+      values: {
+        type: 'bar',
+        data: [
+          { year: '2017', value: -368 },
+          { year: '2018', value: 368 },
+          { year: '2019', value: 368 },
+          { year: '2020', value: 368 },
+          { year: '2021', value: 368 },
+          { year: '2022', value: 368 },
+        ],
+        encode: {
+          x: 'year',
+          y: 'value',
+        },
       },
-      province: '浙江省',
-      city: '杭州市',
-      date: '2021-12',
     },
-    {
-      price: 2323,
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
+    'measure-c': {
+      values: {
+        type: 'line',
+        data: [
+          {
+            date: '2022-06-30',
+            value: 0,
+          },
+          {
+            date: '2022-07-01',
+            value: 0,
+          },
+          {
+            date: '2022-07-02',
+            value: 8,
+          },
+          {
+            date: '2022-07-03',
+            value: 8,
+          },
+          {
+            date: '2022-07-04',
+            value: 8,
+          },
+          {
+            date: '2022-07-05',
+            value: 8,
+          },
+          {
+            date: '2022-07-06',
+            value: 0,
+          },
+        ],
+        encode: {
+          x: 'date',
+          y: 'value',
+        },
       },
-      province: '浙江省',
-      city: '绍兴市',
-      date: '2021-12',
     },
-    {
-      price: 2323,
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
+    'measure-d': {
+      values: {
+        type: 'line',
+        data: [
+          { year: '2018', value: 0 },
+          { year: '2019', value: 0 },
+          { year: '2020', value: 0 },
+          { year: '2021', value: 0 },
+          { year: '2022', value: 0 },
+        ],
+        encode: {
+          x: 'year',
+          y: 'value',
+        },
       },
-      province: '浙江省',
-      city: '杭州市',
-      date: '2021-8',
     },
-    {
-      price: 2323,
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
+    'measure-e': {
+      values: {
+        type: 'bar',
+        data: [
+          { year: '2018', value: -5 },
+          { year: '2019', value: -10 },
+          { year: '2020', value: -5 },
+          { year: '2021', value: -10 },
+        ],
+        encode: {
+          x: 'year',
+          y: 'value',
+        },
       },
-      province: '浙江省',
-      city: '绍兴市',
-      date: '2021-8',
     },
-    {
-      price: 2323,
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '浙江省',
-      city: '宁波市',
-      date: '2021-8',
-    },
-    {
-      price: 2323,
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '浙江省',
-      city: '舟山市',
-      date: '2021-8',
-    },
-    {
-      price: 2323,
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '浙江省',
-      city: '杭州市',
-      date: '2021-7',
-    },
-    {
-      price: 2323,
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '浙江省',
-      city: '绍兴市',
-      date: '2021-7',
-    },
-    {
-      price: 2323,
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '浙江省',
-      city: '宁波市',
-      date: '2021-7',
-    },
-    {
-      price: 2323,
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '浙江省',
-      city: '舟山市',
-      date: '2021-7',
-    },
-    {
-      price: 2323,
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '浙江省',
-      city: '杭州市',
-      date: '2021-5',
-    },
-    {
-      price: 2323,
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '浙江省',
-      city: '绍兴市',
-      date: '2021-5',
-    },
-    {
-      price: 2323,
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '浙江省',
-      city: '宁波市',
-      date: '2021-5',
-    },
-    {
-      price: 2323,
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '浙江省',
-      city: '舟山市',
-      date: '2021-5',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '成都市',
-      date: '2021-12',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '绵阳市',
-      date: '2021-12',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '南充市',
-      date: '2021-12',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '乐山市',
-      date: '2021-12',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '成都市',
-      date: '2021-8',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '绵阳市',
-      date: '2021-8',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '南充市',
-      date: '2021-8',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '乐山市',
-      date: '2021-8',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '成都市',
-      date: '2021-7',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '绵阳市',
-      date: '2021-7',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '南充市',
-      date: '2021-7',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '乐山市',
-      date: '2021-7',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '成都市',
-      date: '2021-5',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '绵阳市',
-      date: '2021-5',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '南充市',
-      date: '2021-5',
-    },
-    {
-      number: {
-        originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
-      },
-      province: '四川省',
-      city: '乐山市',
-      date: '2021-5',
-    },
-  ],
+    date: '趋势',
+    [EXTRA_COLUMN_FIELD]: '趋势',
+  };
 };
 
-export const customTree: S2DataConfig = {
+export const StrategySheetDataConfig: S2DataConfig = {
   data: [
+    // 普通数值+同环比数据
     {
       'measure-a': {
         originalValues: [[3877, 4324, 0.42]],
-        values: [[3877, 4324, '42%']],
+        values: [
+          [3877, 4324, '42%'],
+          [877, 324, '2%'],
+        ],
       },
       'measure-b': {
         originalValues: [[377, 324, -0.02]],
@@ -678,8 +231,37 @@ export const customTree: S2DataConfig = {
         values: [[377, 324, '0.02']],
       },
       date: '2021',
-      sub_type: JSON.stringify(['数值', '环比', '同比']),
+      [EXTRA_COLUMN_FIELD]: JSON.stringify(['数值', '环比', '同比']),
     },
+    // 净增目标完成度子弹图数据
+    getKPIMockData(),
+    // 趋势图数据
+    getMiniChartMockData(),
+    {
+      'measure-a': {
+        originalValues: [[377, '']],
+        values: [[377, '']],
+      },
+      'measure-b': {
+        originalValues: [[377, 324]],
+        values: [[377, 324]],
+      },
+      'measure-c': {
+        originalValues: [[null, 324]],
+        values: [[null, 324]],
+      },
+      'measure-d': {
+        originalValues: [[377, 324]],
+        values: [[377, 324]],
+      },
+      'measure-f': {
+        originalValues: [[377, 324]],
+        values: [[377, 324]],
+      },
+      date: '2022',
+      [EXTRA_COLUMN_FIELD]: JSON.stringify(['数值', '环比']),
+    },
+
     {
       'measure-a': {
         originalValues: [[377, '', 0.02]],
@@ -697,25 +279,24 @@ export const customTree: S2DataConfig = {
         originalValues: [[377, 324, 0.02]],
         values: [[377, 324, '0.02']],
       },
-
       'measure-f': {
         originalValues: [[377, 324, 0.02]],
         values: [[377, 324, '0.02']],
       },
-      date: '2022',
-      sub_type: JSON.stringify(['数值', '环比', '同比']),
+      date: '2022-10',
+      [EXTRA_COLUMN_FIELD]: JSON.stringify(['数值', '环比', '同比']),
     },
   ],
   meta: [
     {
       field: 'date',
-      name: '时间',
+      name: '日期',
     },
   ],
   fields: {
-    rows: [],
-    columns: ['date', 'sub_type'],
+    columns: ['date', EXTRA_COLUMN_FIELD],
     values: [
+      'custom-node-1',
       'measure-a',
       'measure-b',
       'measure-c',
@@ -750,6 +331,12 @@ export const customTree: S2DataConfig = {
                 key: 'measure-c',
                 title: '指标C',
                 description: '指标C描述',
+                children: [],
+              },
+              {
+                key: 'measure-d',
+                title: '指标D',
+                description: '指标D描述',
                 children: [],
               },
             ],
@@ -790,5 +377,59 @@ export const customTree: S2DataConfig = {
         ],
       },
     ],
+  },
+};
+
+export const StrategyOptions: S2Options = {
+  width: 800,
+  height: 800,
+  cornerText: '指标',
+  placeholder: (v) => {
+    const placeholder = v?.fieldValue ? '-' : '';
+    return placeholder;
+  },
+  interaction: {
+    resize: {
+      disable: (resizeInfo) => {
+        return (
+          resizeInfo.meta.label === '净增完成度' &&
+          resizeInfo.resizedWidth < resizeInfo.width
+        );
+      },
+    },
+  },
+  headerActionIcons: [
+    {
+      iconNames: ['Trend'],
+      belongsCell: 'rowCell',
+      defaultHide: true,
+      action: () => {},
+    },
+  ],
+  conditions: {
+    text: [
+      {
+        mapping: (value, cellInfo) => {
+          const { meta } = cellInfo;
+          const isNilValue = isNil(value) || value === '';
+          if (meta?.fieldValue?.values[0][0] === value || isNilValue) {
+            return {
+              fill: '#000',
+            };
+          }
+          return {
+            fill: isUpDataValue(value) ? '#FF4D4F' : '#29A294',
+          };
+        },
+      },
+    ],
+  },
+  style: {
+    cellCfg: {
+      height: 76,
+      valuesCfg: {
+        originalValueField: 'originalValues',
+      },
+    },
   },
 };

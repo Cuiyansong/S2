@@ -1,15 +1,4 @@
-import { Conditions } from './condition';
-import {
-  FilterDataItemCallback,
-  HeaderActionIcon,
-  CustomSVGIcon,
-} from './basic';
-import { Tooltip } from './tooltip';
-import { InteractionOptions } from './interaction';
-import { ColHeaderConfig } from '@/facet/header/col';
-import { RowHeaderConfig } from '@/facet/header/row';
-import { CornerHeaderConfig } from '@/facet/header/corner';
-import {
+import type {
   CellCallback,
   CornerHeaderCallback,
   DataCellCallback,
@@ -19,74 +8,84 @@ import {
   Pagination,
   Style,
   Totals,
-} from '@/common/interface/basic';
-import {
+} from '../../common/interface/basic';
+import type {
   LayoutArrange,
   LayoutCoordinate,
   LayoutDataPosition,
   LayoutHierarchy,
-} from '@/common/interface/hooks';
-import { BaseDataSet } from '@/data-set';
-import { SpreadSheet } from '@/sheet-type';
+} from '../../common/interface/hooks';
+import type { BaseDataSet } from '../../data-set';
+import type { ColHeaderConfig } from '../../facet/header/col';
+import type { CornerHeaderConfig } from '../../facet/header/corner';
+import type { RowHeaderConfig } from '../../facet/header/row';
+import type { SpreadSheet } from '../../sheet-type';
+import type {
+  CustomSVGIcon,
+  FilterDataItemCallback,
+  HeaderActionIcon,
+} from './basic';
+import type { Conditions } from './condition';
+import type { InteractionOptions } from './interaction';
+import type { Tooltip } from './tooltip';
 
 export interface S2BasicOptions<T = Element | string> {
   // canvas's width
-  readonly width?: number;
+  width?: number;
   // canvas's height
-  readonly height?: number;
+  height?: number;
   // debug info for developer
-  readonly debug?: boolean;
+  debug?: boolean;
   // row header hierarchy type only work in pivot mode
-  readonly hierarchyType?: 'grid' | 'tree' | 'customTree';
+  hierarchyType?: 'grid' | 'tree' | 'customTree';
   // conditions config
-  readonly conditions?: Conditions;
+  conditions?: Conditions;
   // total config
-  readonly totals?: Totals;
+  totals?: Totals;
   // tooltip configs
-  readonly tooltip?: Tooltip<T>;
+  tooltip?: Tooltip<T>;
   // interaction configs
-  readonly interaction?: InteractionOptions;
+  interaction?: InteractionOptions;
   // pagination config
-  readonly pagination?: Pagination;
+  pagination?: Pagination;
   // freeze row header
-  readonly frozenRowHeader?: boolean;
-  // show Series Number
-  readonly showSeriesNumber?: boolean;
+  frozenRowHeader?: boolean;
+  // show series Number
+  showSeriesNumber?: boolean;
   // if show the default header actionIcons
-  readonly showDefaultHeaderActionIcon?: boolean;
+  showDefaultHeaderActionIcon?: boolean;
   // header cells including ColCell, RowCell, CornerCell action icon's config
-  readonly headerActionIcons?: HeaderActionIcon[];
+  headerActionIcons?: HeaderActionIcon[];
   // register custom svg icons
-  readonly customSVGIcons?: CustomSVGIcon[];
+  customSVGIcons?: CustomSVGIcon[];
   // extra styles
-  readonly style?: Partial<Style>;
-  readonly hierarchyCollapse?: boolean;
-  readonly hdAdapter?: boolean;
+  style?: Style;
+  hdAdapter?: boolean;
   // the collection of row id and column id of cells which to be merged
-  readonly mergedCellsInfo?: MergedCellInfo[][];
+  mergedCellsInfo?: MergedCellInfo[][];
   // empty cell placeholder
-  readonly placeholder?: string;
+  placeholder?: ((meta: Record<string, any>) => string) | string;
   // custom corner text
-  readonly cornerText?: string;
+  cornerText?: string;
   // custom virtual extra field text
-  readonly cornerExtraFieldText?: string;
-  readonly supportCSSTransform?: boolean;
+  cornerExtraFieldText?: string;
+  supportCSSTransform?: boolean;
   // custom device pixel ratio, default "window.devicePixelRatio"
-  readonly devicePixelRatio?: number;
+  devicePixelRatio?: number;
 
   /** ***********CUSTOM CELL/HEADER HOOKS**************** */
   // custom data cell
-  readonly dataCell?: DataCellCallback;
+  dataCell?: DataCellCallback;
   // custom corner cell
-  readonly cornerCell?: CellCallback<CornerHeaderConfig>;
+  cornerCell?: CellCallback<CornerHeaderConfig>;
   // custom row cell
-  readonly rowCell?: CellCallback<RowHeaderConfig>;
+  rowCell?: CellCallback<RowHeaderConfig>;
   // custom col cell
-  readonly colCell?: CellCallback<ColHeaderConfig>;
+  colCell?: CellCallback<ColHeaderConfig>;
   // custom frame
-  readonly frame?: FrameCallback;
+  frame?: FrameCallback;
   // custom corner header
-  readonly cornerHeader?: CornerHeaderCallback;
+  cornerHeader?: CornerHeaderCallback;
 
   /** ***********CUSTOM LIFECYCLE HOOKS**************** */
   // determine what does row/column tree hierarchy look like
@@ -110,10 +109,10 @@ export interface S2BasicOptions<T = Element | string> {
 // Table sheet options
 export interface S2TableSheetOptions {
   // frozen row & cols
-  readonly frozenRowCount?: number;
-  readonly frozenColCount?: number;
-  readonly frozenTrailingRowCount?: number;
-  readonly frozenTrailingColCount?: number;
+  frozenRowCount?: number;
+  frozenColCount?: number;
+  frozenTrailingRowCount?: number;
+  frozenTrailingColCount?: number;
 }
 
 // Pivot sheet options
@@ -125,5 +124,11 @@ export interface S2Options<T = Element | string>
     S2TableSheetOptions,
     S2PivotSheetOptions {
   // custom data set
-  readonly dataSet?: (spreadsheet: SpreadSheet) => BaseDataSet;
+  dataSet?: (spreadsheet: SpreadSheet) => BaseDataSet;
+}
+
+export interface S2RenderOptions {
+  reloadData?: boolean;
+  reBuildDataSet?: boolean;
+  reBuildHiddenColumnsDetail?: boolean;
 }

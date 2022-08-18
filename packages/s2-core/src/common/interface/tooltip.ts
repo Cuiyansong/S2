@@ -1,7 +1,8 @@
 import type { Event as CanvasEvent } from '@antv/g-canvas';
-import type { SpreadSheet } from '@/sheet-type';
-import type { S2CellType, SortParam } from '@/common/interface';
-import type { BaseTooltip } from '@/ui/tooltip';
+import type * as CSS from 'csstype';
+import type { SpreadSheet } from '../../sheet-type';
+import type { S2CellType, SortParam } from '../../common/interface';
+import type { BaseTooltip } from '../../ui/tooltip';
 
 export type TooltipDataItem = Record<string, any>;
 
@@ -102,6 +103,7 @@ export type TooltipData = {
   interpretation?: TooltipInterpretationOptions;
   colIndex?: number;
   rowIndex?: number;
+  description?: string;
 };
 
 export type TooltipHeadInfo = {
@@ -109,17 +111,17 @@ export type TooltipHeadInfo = {
   cols: ListItem[];
 };
 
-export type DataParam = {
+export type TooltipDataParams = {
   spreadsheet: SpreadSheet;
   options?: TooltipOptions;
-  isHeader?: boolean; // 是否是行头/列头
+  targetCell: S2CellType;
   getShowValue?: (
     selectedData: TooltipDataItem[],
     valueField: string,
   ) => string | number; // 自定义value
 };
 
-export type IconProps = {
+export type TooltipIconProps = {
   icon: Element | string;
   [key: string]: unknown;
 };
@@ -128,11 +130,11 @@ export interface SummaryProps {
   summaries: TooltipSummaryOptions[];
 }
 
-export interface SummaryParam extends DataParam {
+export interface SummaryParam extends TooltipDataParams {
   cellInfos?: TooltipDataItem[];
 }
 
-export interface TooltipDataParam extends DataParam {
+export interface TooltipDataParam extends TooltipDataParams {
   cellInfos: TooltipDataItem[];
 }
 
@@ -147,22 +149,35 @@ export type TooltipAutoAdjustBoundary = 'body' | 'container';
 export type TooltipContentType = Element | string;
 
 export interface BaseTooltipConfig<T = TooltipContentType> {
-  readonly showTooltip?: boolean;
+  showTooltip?: boolean;
   // Custom content
-  readonly content?: TooltipShowOptions<T>['content'];
+  content?: TooltipShowOptions<T>['content'];
   // Tooltip operation
-  readonly operation?: TooltipOperation;
-  readonly autoAdjustBoundary?: TooltipAutoAdjustBoundary;
-  readonly renderTooltip?: (spreadsheet: SpreadSheet) => BaseTooltip;
+  operation?: TooltipOperation;
+  // Tooltip Boundary
+  autoAdjustBoundary?: TooltipAutoAdjustBoundary;
+  // Custom tooltip
+  renderTooltip?: (spreadsheet: SpreadSheet) => BaseTooltip;
+  // Custom tooltip position
+  adjustPosition?: (positionInfo: TooltipPositionInfo) => TooltipPosition;
   // Custom tooltip mount container
-  readonly getContainer?: () => HTMLElement;
+  getContainer?: () => HTMLElement;
+  // Extra tooltip container class name
+  className?: string | string[];
+  // Extra tooltip container style
+  style?: CSS.Properties;
+}
+
+export interface TooltipPositionInfo {
+  position: TooltipPosition;
+  event: CanvasEvent | MouseEvent;
 }
 
 export interface Tooltip<T = TooltipContentType> extends BaseTooltipConfig<T> {
-  readonly row?: BaseTooltipConfig<T>;
-  readonly col?: BaseTooltipConfig<T>;
-  readonly corner?: BaseTooltipConfig<T>;
-  readonly data?: BaseTooltipConfig<T>;
+  row?: BaseTooltipConfig<T>;
+  col?: BaseTooltipConfig<T>;
+  corner?: BaseTooltipConfig<T>;
+  data?: BaseTooltipConfig<T>;
 }
 
 export interface TooltipOperation extends TooltipOperatorOptions {

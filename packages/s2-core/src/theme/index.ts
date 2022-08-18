@@ -1,18 +1,21 @@
 import { FONT_FAMILY, MINI_BAR_CHART_HEIGHT } from '../common/constant';
-import { S2Theme, ThemeCfg } from '../common/interface';
-import { SpreadSheet } from '../sheet-type';
+import type { S2Theme, ThemeCfg } from '../common/interface';
+import type { SpreadSheet } from '../sheet-type';
 import { isMobile, isWindows } from '../utils/is-mobile';
 import { getPalette } from '../utils/theme';
 
 /**
  * @describe generate the theme according to the type
- * @param  name
+ * @param themeCfg
  */
 export const getTheme = (
   themeCfg: Omit<ThemeCfg, 'theme'> & { spreadsheet?: SpreadSheet },
 ): S2Theme => {
-  const { basicColors, semanticColors } =
-    themeCfg?.palette || getPalette(themeCfg?.name);
+  const {
+    basicColors,
+    semanticColors,
+    others: otherColors,
+  } = themeCfg?.palette || getPalette(themeCfg?.name);
 
   const isTable = themeCfg?.spreadsheet?.isTableMode();
 
@@ -67,15 +70,35 @@ export const getTheme = (
       },
     },
     rowCell: {
+      seriesText: {
+        fontFamily: FONT_FAMILY,
+        fontSize: 12,
+        fontWeight: 'normal',
+        fill: basicColors[14],
+        linkTextFill: basicColors[6],
+        opacity: 1,
+        textBaseline: 'middle',
+        textAlign: 'center',
+      },
+      measureText: {
+        fontFamily: FONT_FAMILY,
+        fontSize: 12,
+        fontWeight: 'normal',
+        fill: basicColors[14],
+        linkTextFill: basicColors[6],
+        opacity: 1,
+        textAlign: isTable ? 'center' : 'left',
+        textBaseline: 'top',
+      },
       bolderText: {
         fontFamily: FONT_FAMILY,
         fontSize: 12,
-        fontWeight: isWindows() ? 'bold' : 520,
+        fontWeight: isWindows() ? 'bold' : 500,
         fill: basicColors[14],
-        linkTextFill: basicColors[14],
+        linkTextFill: basicColors[6],
         opacity: 1,
         textAlign: isTable ? 'center' : 'left',
-        textBaseline: 'middle',
+        textBaseline: 'top',
       },
       text: {
         fontFamily: FONT_FAMILY,
@@ -84,7 +107,7 @@ export const getTheme = (
         fill: basicColors[14],
         linkTextFill: basicColors[6],
         opacity: 1,
-        textBaseline: 'middle',
+        textBaseline: 'top',
         textAlign: isTable ? 'center' : 'left', // default align center for row cell in table mode
       },
       cell: {
@@ -102,9 +125,9 @@ export const getTheme = (
         // -------------- layout -----------------
         padding: {
           top: 0,
-          right: 10,
+          right: 8,
           bottom: 0,
-          left: 10,
+          left: 8,
         },
         /* ---------- interaction state ----------- */
         interactionState: {
@@ -124,10 +147,20 @@ export const getTheme = (
             textOpacity: 0.3,
             opacity: 0.3,
           },
+          // -------------- searchResult -------------------
+          searchResult: {
+            backgroundColor: otherColors?.results ?? basicColors[2],
+            backgroundOpacity: 1,
+          },
+          // -------------- highlight -------------------
+          highlight: {
+            backgroundColor: otherColors?.highlight ?? basicColors[6],
+            backgroundOpacity: 1,
+          },
         },
       },
       icon: {
-        fill: basicColors[0],
+        fill: basicColors[14],
         size: 10,
         margin: {
           right: 4,
@@ -137,10 +170,20 @@ export const getTheme = (
       seriesNumberWidth: 80,
     },
     colCell: {
+      measureText: {
+        fontFamily: FONT_FAMILY,
+        fontSize: 12,
+        fontWeight: 'normal',
+        fill: basicColors[0],
+        opacity: 1,
+        // 默认数值字段和 dataCell 数值对齐
+        textAlign: 'right',
+        textBaseline: 'middle',
+      },
       bolderText: {
         fontFamily: FONT_FAMILY,
         fontSize: 12,
-        fontWeight: isWindows() ? 'bold' : 520,
+        fontWeight: isWindows() ? 'bold' : 500,
         fill: basicColors[0],
         opacity: 1,
         textAlign: 'center',
@@ -192,6 +235,16 @@ export const getTheme = (
             textOpacity: 0.3,
             opacity: 0.3,
           },
+          // -------------- searchResult -------------------
+          searchResult: {
+            backgroundColor: otherColors?.results ?? basicColors[2],
+            backgroundOpacity: 1,
+          },
+          // -------------- highlight -------------------
+          highlight: {
+            backgroundColor: otherColors?.highlight ?? basicColors[6],
+            backgroundOpacity: 1,
+          },
         },
       },
       icon: {
@@ -210,7 +263,7 @@ export const getTheme = (
       bolderText: {
         fontFamily: FONT_FAMILY,
         fontSize: 12,
-        fontWeight: isWindows() ? 'bold' : 520,
+        fontWeight: isWindows() ? 'bold' : 500,
         fill: basicColors[13],
         opacity: 1,
         textAlign: 'right',
@@ -240,9 +293,9 @@ export const getTheme = (
         verticalBorderWidth: 1,
         // -------------- layout -----------------
         padding: {
-          top: 0,
+          top: 8,
           right: 8,
-          bottom: 0,
+          bottom: 8,
           left: 8,
         },
         /* ---------- interaction state ----------- */
@@ -271,6 +324,16 @@ export const getTheme = (
             textOpacity: 0.3,
             opacity: 0.3,
           },
+          // -------------- searchResult -------------------
+          searchResult: {
+            backgroundColor: otherColors?.results ?? basicColors[2],
+            backgroundOpacity: 1,
+          },
+          // -------------- highlight -------------------
+          highlight: {
+            backgroundColor: otherColors?.highlight ?? basicColors[6],
+            backgroundOpacity: 1,
+          },
           // -------------- prepare select --------------
           prepareSelect: {
             borderColor: basicColors[14],
@@ -278,13 +341,54 @@ export const getTheme = (
             borderWidth: 1,
           },
         },
-
-        // ------------- mini chart ---------------
+        // TODO 全部收敛到 miniChart 里
         miniBarChartHeight: MINI_BAR_CHART_HEIGHT,
         miniBarChartFillColor: basicColors[7],
       },
+      // ------------- mini chart ---------------
+      miniChart: {
+        // ------------- line graph -----------------
+        line: {
+          point: {
+            size: 2.2,
+            fill: basicColors[6],
+            opacity: 1,
+          },
+          linkLine: {
+            size: 1.5,
+            fill: basicColors[6],
+            opacity: 0.6,
+          },
+        },
+        // ------------- bar graph -----------------
+        bar: {
+          intervalPadding: 4,
+          fill: basicColors[6],
+          opacity: 1,
+        },
+        // ------------- bullet graph -----------------
+        bullet: {
+          progressBar: {
+            widthPercent: 0.75,
+            height: 10,
+            innerHeight: 6,
+          },
+          comparativeMeasure: {
+            width: 1,
+            height: 12,
+            color: basicColors[13],
+            opacity: 0.25,
+          },
+          rangeColors: {
+            good: semanticColors?.green,
+            satisfactory: semanticColors.yellow,
+            bad: semanticColors.red,
+          },
+          backgroundColor: '#E9E9E9',
+        },
+      },
       icon: {
-        fill: basicColors[0],
+        fill: basicColors[13],
         downIconColor: semanticColors.red,
         upIconColor: semanticColors.green,
         size: 10,
@@ -300,6 +404,7 @@ export const getTheme = (
       background: basicColors[7],
       backgroundOpacity: 0,
       guideLineColor: basicColors[7],
+      guideLineDisableColor: 'rgba(0,0,0,0.25)',
       guideLineDash: [3, 3],
       /* ---------- interaction state ----------- */
       interactionState: {

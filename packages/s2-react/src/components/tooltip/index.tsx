@@ -1,32 +1,28 @@
 import { isEmpty } from 'lodash';
 import React from 'react';
-import {
+import { getTooltipDefaultOptions } from '@antv/s2';
+import type {
   ListItem,
   TooltipOperatorOptions,
   TooltipSummaryOptions,
   TooltipNameTipsOptions,
   TooltipHeadInfo as TooltipHeadInfoType,
   TooltipInterpretationOptions,
-  getTooltipDefaultOptions,
 } from '@antv/s2';
 import { TooltipDetail } from './components/detail';
-import { Divider } from './components/divider';
 import { TooltipHead } from './components/head-info';
 import { TooltipInfos } from './components/infos';
-import { Interpretation } from './components/interpretation';
+import { TooltipInterpretation } from './components/interpretation';
 import { TooltipOperator } from './components/operator';
-import { SimpleTips } from './components/simple-tips';
+import { TooltipSimpleTips } from './components/simple-tips';
 import { TooltipSummary } from './components/summary';
-import { TooltipRenderProps } from './interface';
+import { TooltipDescription } from './components/description';
+import type { TooltipRenderProps } from './interface';
 
 import './index.less';
 
 export const TooltipComponent: React.FC<TooltipRenderProps> = (props) => {
   const { data, options, content, cell } = props;
-
-  const renderDivider = () => {
-    return <Divider />;
-  };
 
   const renderOperation = (
     operator: TooltipOperatorOptions,
@@ -46,7 +42,7 @@ export const TooltipComponent: React.FC<TooltipRenderProps> = (props) => {
 
   const renderNameTips = (nameTip: TooltipNameTipsOptions) => {
     const { name, tips } = nameTip || {};
-    return <SimpleTips name={name} tips={tips} />;
+    return <TooltipSimpleTips name={name} tips={tips} />;
   };
 
   const renderSummary = (summaries: TooltipSummaryOptions[]) => {
@@ -58,10 +54,7 @@ export const TooltipComponent: React.FC<TooltipRenderProps> = (props) => {
 
     return (
       (!isEmpty(cols) || !isEmpty(rows)) && (
-        <>
-          {renderDivider()}
-          <TooltipHead cols={cols} rows={rows} />
-        </>
+        <TooltipHead cols={cols} rows={rows} />
       )
     );
   };
@@ -77,15 +70,26 @@ export const TooltipComponent: React.FC<TooltipRenderProps> = (props) => {
   const renderInterpretation = (
     interpretation: TooltipInterpretationOptions,
   ) => {
-    return interpretation && <Interpretation {...interpretation} />;
+    return interpretation && <TooltipInterpretation {...interpretation} />;
+  };
+
+  const renderDescription = (description: string) => {
+    return <TooltipDescription description={description} />;
   };
 
   const renderContent = () => {
-    const option = getTooltipDefaultOptions(options);
-    const { operator, onlyMenu } = option;
-    const { summaries, headInfo, details, interpretation, infos, tips, name } =
-      data || {};
-    const nameTip = { name, tips };
+    const { operator, onlyMenu } = getTooltipDefaultOptions(options);
+    const {
+      summaries,
+      headInfo,
+      details,
+      interpretation,
+      infos,
+      tips,
+      name,
+      description,
+    } = data || {};
+    const nameTip: TooltipNameTipsOptions = { name, tips };
 
     if (onlyMenu) {
       return renderOperation(operator, true);
@@ -99,6 +103,7 @@ export const TooltipComponent: React.FC<TooltipRenderProps> = (props) => {
         {renderHeadInfo(headInfo)}
         {renderDetail(details)}
         {renderInfos(infos)}
+        {renderDescription(description)}
       </>
     );
 

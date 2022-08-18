@@ -7,59 +7,19 @@ order: 8
 
 ## 1. 使用问题
 
-### 性能问题
-
-使用 [`S2`](https://github.com/antvis/S2) 过程中，如果出现性能问题，比如渲染时间长，浏览器无响应等，可能原因如下：
-
-- 数据量大。正常 `1w` 数据渲染时间是 `150ms`，`100w` 数据渲染时间是 `4s`，数据超过 `100w` 感受会比较明显，详见 [性能介绍](/zh/docs/manual/advanced/performance)。
-- 属性频繁变化。比如 `<SheetComponent />` 组件中，`options`、`dataCfg`等属性的引用频繁变化，每一次变化都会重新计算布局和渲染，因此属性改变时建议使用新的数据对象，避免重复渲染，[更多了解](https://zh-hans.reactjs.org/docs/optimizing-performance.html#the-power-of-not-mutating-data)。
-
-   举个例子：
-
-   ```ts
-   // bad
-   options.hierarchyType = 'tree';
-
-   // good
-   const newOptions = Object.assign({}, options, { hierarchyType: 'tree' });
-   ```
-
-   此外，当处理深层嵌套对象时，以 immutable （不可变）的方式更新它们，帮助你编写高可读性、高性能的代码。
-
 ### 浏览器兼容性
 
 如果出现兼容性问题请结合 `babel` 和 `@babel/polyfill` 使用，更多问题欢迎进群交流
 
 > 由于条件限制，版本下限仅供参考，并不意味着不能支持更低版本，该测试在 CDN 模式下测试完成，[在线 Demo](https://lxfu1.github.io/browser-compatibility-of-antv/?tab=s2)
 
-|        | Chrome | Edge | Firefox | IE  | Opera | Safari | UC  | 360 极速浏览器 | 360 安全浏览器 |
-| ------ | :----: | :--: | :-----: | :-: | :---: | :----: | :-: | :------------: | :------------: |
-| **AntV S2** |   40   |  12  |   85    |  9  |  40   |   14   |   6.2   |    12    |   7.3     |
+|             | Chrome | Edge  | Firefox |  IE   | Opera | Safari |  UC   | 360 极速浏览器 | 360 安全浏览器 |
+| ----------- | :----: | :---: | :-----: | :---: | :---: | :----: | :---: | :------------: | :------------: |
+| **AntV S2** |   40   |  12   |   85    |   9   |  40   |   14   |  6.2  |       12       |      7.3       |
 
 ### 浏览器引入
 
-我们提供了 `dist` 目录的 `umd` 编译文件，引入 `dist/index.min.js` , 可访问全局变量 `window.S2`
-
-```ts
-<script src="./dist/index.min.js"></script>
-<script>
-   const s2 = new window.S2.PivotSheet(container, s2DataConfig, s2Options);
-   s2.render();
-</script>
-```
-
-如果使用的是 `React` 版本 `@antv/s2-react`, 还需额外引入样式文件
-
-```html
-<link rel="stylesheet" href="./dist/style.min.css"/>
-```
-
-也可以直接使用 CDN, 比如 [UNPKG](https://unpkg.com/@antv/s2@latest) 或者 [![preview](https://data.jsdelivr.com/v1/package/npm/@antv/s2/badge)](https://www.jsdelivr.com/package/npm/@antv/s2)
-
-```js
-<script src="https://unpkg.com/@antv/s2@latest/dist/index.min.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/@antv/s2-react@latest/dist/style.min.css"/>
-```
+`markdown:docs/common/browser.zh.md`
 
 ### 官网访问有点慢，或打不开，有国内镜像吗？
 
@@ -91,21 +51,21 @@ s2.render(false)
 const pivotSheet = new PivotSheet(document.getElementById('container'), dataCfg, options);
 ```
 
-更新 options: [可选项](https://s2.antv.vision/zh/docs/api/general/S2Options)
+更新 options: [可选项](/zh/docs/api/general/S2Options)
 
 ```ts
 pivotSheet.setOptions({ ... })
 pivotSheet.render(false) // 重新渲染，不更新数据
 ```
 
-更新 dataCfg: [可选项](https://s2.antv.vision/zh/docs/api/general/S2DataConfig)
+更新 dataCfg: [可选项](/zh/docs/api/general/S2DataConfig)
 
 ```ts
 pivotSheet.setDataCfg({ ... })
 pivotSheet.render(true) // 重新渲染，且更新数据
 ```
 
-更新 theme: [可选项](https://s2.antv.vision/zh/docs/api/general/S2Theme)
+更新 theme: [可选项](/zh/docs/api/general/S2Theme)
 
 ```ts
 pivotSheet.setThemeCfg({ ... })
@@ -150,6 +110,14 @@ s2.render(false)
 
 请查看 [这篇文章](/zh/docs/manual/advanced/get-cell-data)
 
+### 为什么 tooltip 在 `@antv/s2` 中不显示，在 `@antv/s2-react` `@antv/s2-vue` 中可以正常显示？
+
+请查看 [Tooltip 注意事项](/zh/docs/manual/basic/tooltip#%E7%AE%80%E4%BB%8B)
+
+### 如何在 Vue 中自定义 Tooltip
+
+可直接使用 S2 的 Vue3 版本 `@antv/s2-vue`, 或查看 [在 Vue3 中自定义](/zh/docs/manual/basic/tooltip/#在-vue3-中自定义)
+
 ### 表格支持导出 `Excel` 吗？
 
 支持，请查看 [这篇文章](/zh/docs/manual/basic/analysis/export), 或者 [示例](/zh/examples/react-component/export#export)
@@ -160,20 +128,29 @@ s2.render(false)
 
 ![excel](https://gw.alipayobjects.com/zos/antfincdn/G1FBvKgYe/5e4e38fd-cd0d-4d98-b897-b40dd97effdc.png)
 
+### 鼠标滚轮如何进行水平滚动
+
+按住 `Shift` 键的同时滚动鼠标
+
 ### S2 有对应的 `Vue` 或者 `Angular` 版本吗？
 
-目前，S2 由两个包构成
+目前，S2 由三个包构成
 
-- `@antv/s2`: 基于 `canvas` 开发，提供表格渲染
+- `@antv/s2`: 基于 `canvas` 和 [AntV/G](https://g.antv.vision/zh/docs/guide/introduce) 开发，提供基本的表格展示/交互等能力
 - `@antv/s2-react`: 基于 `@antv/s2` 封装，提供配套的分析组件
+- `@antv/s2-vue`: 基于 `Vue3` 和 `@antv/s2` 封装，提供配套的分析组件
 
 也就是说 `@antv/s2` 和框架无关，你可以在 `Vue`, `Angular` 等框架中使用。
 
-配套的 [分析组件](/zh/examples/react-component), 目前还没有 `@antv/s2-vue`, `@antv/s2-angular` 的开发计划，欢迎社区一起建设 👏🏻.
+以下是版本概览：
+
+`markdown:docs/common/packages.zh.md`
+
+配套的 [分析组件](/zh/examples/gallery#category-表格组件)，目前还没有 `@antv/s2-angular` 的开发计划，欢迎社区一起建设 👏🏻.
 
 ### 怎样贡献代码？
 
-请查看 [贡献指南](https://s2.antv.vision/zh/docs/manual/contribution)
+请查看 [贡献指南](/zh/docs/manual/contribution)
 
 ### 为什么在小程序上面表格无法显示？
 
@@ -193,7 +170,7 @@ s2.render(false)
 
 - 你的**复现步骤**, 和可复现链接
 
-> 推荐使用 官方 [codesandbox 模板](https://codesandbox.io/s/29zle) 大家一些最小的可复现 demo
+> 推荐使用 官方 [codesandbox 模板](https://codesandbox.io/s/29zle) 搭建一些最小的可复现 demo
 
 - 你的**配置信息**, 并且使用 markdown 的 `code` 标签
 
@@ -205,7 +182,7 @@ s2.render(false)
 
 - 尽量抹去一些带有你自己业务语义的一些名词和描述
 
-在提出问题前，请确保你已经阅读过 [官方文档](https://s2.antv.vision/zh/docs/manual/introduction) 和 [常见问题](https://s2.antv.vision/zh/docs/manual/faq), 并且已经搜索查阅过相关 [Issues 列表](https://github.com/antvis/S2/issues?q=is%3Aissue+is%3Aclosed)
+在提出问题前，请确保你已经阅读过 [官方文档](/zh/docs/manual/introduction) 和 [常见问题](/zh/docs/manual/faq), 并且已经搜索查阅过相关 [Issues 列表](https://github.com/antvis/S2/issues?q=is%3Aissue+is%3Aclosed)
 
 强烈建议阅读：
 
@@ -214,7 +191,12 @@ s2.render(false)
 - [《提问的智慧》](https://github.com/ryanhanwu/How-To-Ask-Questions-The-Smart-Way)
 - [《如何向开源社区提问题》](https://github.com/seajs/seajs/issues/545)
 
-一个很好的例子：[#852](https://github.com/antvis/S2/issues/852)
-一个不好的例子：[#1057](https://github.com/antvis/S2/issues/1057)
+✅  一个很好的例子：[#852](https://github.com/antvis/S2/issues/852)
+
+❌  一个不好的例子：[#1057](https://github.com/antvis/S2/issues/1057)
+
+### 我想反馈 Bug, 如何提供一个可复现的在线 demo 呢？
+
+推荐使用 `codesandbox`, 我们提供了各种版本的模板，方便你反馈问题。[查看所有模板](https://www.yuque.com/antv/vo4vyz/bam4vz)
 
 ## 2. 错误和警告

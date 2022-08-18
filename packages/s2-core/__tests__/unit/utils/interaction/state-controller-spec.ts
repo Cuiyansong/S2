@@ -1,7 +1,7 @@
-import { getCellMeta } from 'src/utils/interaction/select-event';
-import { RowCell } from '@/cell/row-cell';
+import { getCellMeta } from '@/utils/interaction/select-event';
+import type { RowCell } from '@/cell/row-cell';
 import { CellTypes, InteractionStateName } from '@/common/constant/interaction';
-import { S2Options } from '@/common/interface';
+import type { S2Options } from '@/common/interface';
 import { Store } from '@/common/store';
 import { RootInteraction } from '@/interaction/root';
 import { SpreadSheet } from '@/sheet-type';
@@ -92,6 +92,22 @@ describe('State Controller Utils Tests', () => {
     expect(mockInstance.interaction.getState()).toEqual({
       cells: [],
       force: false,
+    });
+  });
+
+  test('should only reset state for empty interactedCells or cells  when call clearState function', () => {
+    setState(mockInstance, {
+      stateName: InteractionStateName.SELECTED,
+      interactedCells: [],
+      cells: [],
+    });
+
+    clearState(mockInstance);
+
+    expect(mockInstance.interaction.getState()).toEqual({
+      cells: [],
+      interactedCells: [],
+      stateName: InteractionStateName.SELECTED,
     });
   });
 });

@@ -1,13 +1,15 @@
 import type { IShape, Point } from '@antv/g-canvas';
-import { clamp, findLast, first, get, isEmpty, isEqual } from 'lodash';
-import { BaseCell } from '@/cell/base-cell';
+import { find, findLast, first, get, isEmpty, isEqual } from 'lodash';
+import { BaseCell } from '../cell/base-cell';
 import {
   CellTypes,
   InteractionStateName,
   SHAPE_STYLE_MAP,
-} from '@/common/constant/interaction';
-import { GuiIcon } from '@/common/icons';
-import {
+} from '../common/constant/interaction';
+import type { GuiIcon } from '../common/icons';
+import { CellBorderPosition } from '../common/interface';
+import type {
+  CellMeta,
   Condition,
   Conditions,
   FormatResult,
@@ -15,22 +17,23 @@ import {
   IconCfg,
   IconCondition,
   MappingResult,
-  CellMeta,
   TextTheme,
   ViewMeta,
   ViewMetaIndexType,
-  CellBorderPosition,
-} from '@/common/interface';
-import { getMaxTextWidth, getBorderPositionAndStyle } from '@/utils/cell/cell';
-import { includeCell } from '@/utils/cell/data-cell';
-import { getIconPositionCfg } from '@/utils/condition/condition';
+} from '../common/interface';
+import { getBorderPositionAndStyle, getMaxTextWidth } from '../utils/cell/cell';
+import { includeCell } from '../utils/cell/data-cell';
+import {
+  getIconPositionCfg,
+  getIntervalScale,
+} from '../utils/condition/condition';
+import { parseNumberWithPrecision } from '../utils/formatter';
 import {
   renderIcon,
   renderLine,
   renderRect,
   updateShapeAttr,
-} from '@/utils/g-renders';
-import { parseNumberWithPrecision } from '@/utils/formatter';
+} from '../utils/g-renders';
 
 /**
  * DataCell for panelGroup area
@@ -55,9 +58,27 @@ export class DataCell extends BaseCell<ViewMeta> {
     return CellTypes.DATA_CELL;
   }
 
-  protected handlePrepareSelect(cells: CellMeta[]) {
+  protected handleByStateName(
+    cells: CellMeta[],
+    stateName: InteractionStateName,
+  ) {
     if (includeCell(cells, this)) {
-      this.updateByState(InteractionStateName.PREPARE_SELECT);
+      this.updateByState(stateName);
+    }
+  }
+
+  protected handleSearchResult(cells: CellMeta[]) {
+    if (!includeCell(cells, this)) {
+      return;
+    }
+    const targetCell = find(
+      cells,
+      (cell: CellMeta) => cell?.isTarget,
+    ) as CellMeta;
+    if (targetCell.id === this.getMeta().id) {
+      this.updateByState(InteractionStateName.HIGHLIGHT);
+    } else {
+      this.updateByState(InteractionStateName.SEARCH_RESULT);
     }
   }
 
@@ -129,9 +150,6 @@ export class DataCell extends BaseCell<ViewMeta> {
     }
 
     switch (stateName) {
-      case InteractionStateName.PREPARE_SELECT:
-        this.handlePrepareSelect(cells);
-        break;
       case InteractionStateName.SELECTED:
         this.handleSelect(cells);
         break;
@@ -139,7 +157,11 @@ export class DataCell extends BaseCell<ViewMeta> {
       case InteractionStateName.HOVER:
         this.handleHover(cells);
         break;
+      case InteractionStateName.SEARCH_RESULT:
+        this.handleSearchResult(cells);
+        break;
       default:
+        this.handleByStateName(cells, stateName);
         break;
     }
   }
@@ -157,7 +179,9 @@ export class DataCell extends BaseCell<ViewMeta> {
     this.drawInteractiveBorderShape();
     this.drawTextShape();
     this.drawConditionIconShapes();
-    this.drawBorderShape();
+    if (this.meta.isFrozenCorner) {
+      this.drawBorderShape();
+    }
     this.update();
   }
 
@@ -171,7 +195,7 @@ export class DataCell extends BaseCell<ViewMeta> {
     let fill = textStyle.fill;
     const textCondition = this.findFieldCondition(this.conditions?.text);
     if (textCondition?.mapping) {
-      fill = this.mappingValue(textCondition)?.fill;
+      fill = this.mappingValue(textCondition)?.fill || textStyle.fill;
     }
 
     return { ...textStyle, fill };
@@ -195,15 +219,11 @@ export class DataCell extends BaseCell<ViewMeta> {
   protected getFormattedFieldValue(): FormatResult {
     const { rowId, valueField, fieldValue, data } = this.meta;
     const rowMeta = this.spreadsheet.dataSet.getFieldMeta(rowId);
-    let formatter: Formatter;
-    if (rowMeta) {
-      // format by row field
-      formatter = this.spreadsheet.dataSet.getFieldFormatter(rowId);
-    } else {
-      // format by value field
-      formatter = this.spreadsheet.dataSet.getFieldFormatter(valueField);
-    }
-    const formattedValue = formatter(fieldValue, data);
+    const fieldId = rowMeta ? rowId : valueField;
+    const formatter = this.spreadsheet.dataSet.getFieldFormatter(fieldId);
+    // TODO: 这里只用 formatter(fieldValue, this.meta) 即可, 为了保持兼容, 暂时在第三个参入传入 meta 信息
+    const formattedValue = formatter(fieldValue, data, this.meta);
+
     return {
       value: fieldValue,
       formattedValue,
@@ -226,9 +246,8 @@ export class DataCell extends BaseCell<ViewMeta> {
     if (iconCondition && iconCondition.mapping) {
       const attrs = this.mappingValue(iconCondition);
       const position = this.getIconPosition();
-      const { formattedValue } = this.getFormattedFieldValue();
       const { size } = this.theme.dataCell.icon;
-      if (!isEmpty(attrs?.icon) && formattedValue) {
+      if (!isEmpty(attrs?.icon)) {
         this.conditionIconShape = renderIcon(this, {
           ...position,
           name: attrs.icon,
@@ -241,49 +260,28 @@ export class DataCell extends BaseCell<ViewMeta> {
   }
 
   /**
-   * 计算柱图的 scale 函数（两种情况）
-   *
-   * min_________x_____0___________________________max
-   * |<----r---->|
-   *
-   * 0_________________min_________x_______________max
-   * |<-------------r------------->|
-   *
-   * @param minValue in current field values
-   * @param max in current field values
-   */
-  private getIntervalScale(minValue = 0, maxValue = 0) {
-    minValue = parseNumberWithPrecision(minValue);
-    maxValue = parseNumberWithPrecision(maxValue);
-
-    const realMin = minValue >= 0 ? 0 : minValue;
-    const distance = maxValue - realMin || 1;
-    return (current: number) =>
-      // max percentage shouldn't be greater than 100%
-      // min percentage shouldn't be less than 0%
-      clamp((current - realMin) / distance, 0, 1);
-  }
-
-  /**
    * Draw interval condition shape
-   * @private
+   * @protected
    */
   protected drawConditionIntervalShape() {
     const { x, y, height, width } = this.getCellArea();
-    const { formattedValue } = this.getFormattedFieldValue();
 
     const intervalCondition = this.findFieldCondition(
       this.conditions?.interval,
     );
 
-    if (intervalCondition && intervalCondition.mapping && formattedValue) {
+    if (intervalCondition && intervalCondition.mapping) {
       const attrs = this.mappingValue(intervalCondition);
       if (!attrs) {
         return;
       }
-      const { minValue, maxValue } = attrs.isCompare
+
+      const valueRange = attrs.isCompare
         ? attrs
         : this.spreadsheet.dataSet.getValueRangeByField(this.meta.valueField);
+      const minValue = parseNumberWithPrecision(valueRange.minValue);
+      const maxValue = parseNumberWithPrecision(valueRange.maxValue);
+
       const fieldValue = parseNumberWithPrecision(
         this.meta.fieldValue as number,
       );
@@ -291,19 +289,18 @@ export class DataCell extends BaseCell<ViewMeta> {
       if (fieldValue < minValue || fieldValue > maxValue) {
         return;
       }
-
-      const scale = this.getIntervalScale(minValue, maxValue);
-      const zero = scale(0); // 零点
-      const current = scale(fieldValue); // 当前数据点
-
       const barChartHeight = this.getStyle().cell.miniBarChartHeight;
       const barChartFillColor = this.getStyle().cell.miniBarChartFillColor;
+
+      const getScale = getIntervalScale(minValue, maxValue);
+      const { zeroScale, scale } = getScale(fieldValue);
+
       const fill = attrs.fill ?? barChartFillColor;
 
       this.conditionIntervalShape = renderRect(this, {
-        x: x + width * zero,
+        x: x + width * zeroScale,
         y: y + height / 2 - barChartHeight / 2,
-        width: width * (current - zero),
+        width: width * scale,
         height: barChartHeight,
         fill,
       });
@@ -360,14 +357,18 @@ export class DataCell extends BaseCell<ViewMeta> {
     const { x, y, height, width } = this.getCellArea();
     this.stateShapes.set(
       'interactiveBorderShape',
-      renderRect(this, {
-        x: x + margin,
-        y: y + margin,
-        width: width - margin * 2,
-        height: height - margin * 2,
-        fill: 'transparent',
-        stroke: 'transparent',
-      }),
+      renderRect(
+        this,
+        {
+          x: x + margin,
+          y: y + margin,
+          width: width - margin * 2,
+          height: height - margin * 2,
+        },
+        {
+          visible: false,
+        },
+      ),
     );
   }
 
@@ -377,16 +378,20 @@ export class DataCell extends BaseCell<ViewMeta> {
   protected drawInteractiveBgShape() {
     this.stateShapes.set(
       'interactiveBgShape',
-      renderRect(this, {
-        ...this.getCellArea(),
-        fill: 'transparent',
-        stroke: 'transparent',
-      }),
+      renderRect(
+        this,
+        {
+          ...this.getCellArea(),
+        },
+        {
+          visible: false,
+        },
+      ),
     );
   }
 
   // dataCell根据state 改变当前样式，
-  private changeRowColSelectState(indexType: ViewMetaIndexType) {
+  protected changeRowColSelectState(indexType: ViewMetaIndexType) {
     const { interaction } = this.spreadsheet;
     const currentIndex = get(this.meta, indexType);
     const { nodes = [], cells = [] } = interaction.getState();
@@ -404,7 +409,7 @@ export class DataCell extends BaseCell<ViewMeta> {
 
   /**
    * Render cell border controlled by verticalBorder & horizontalBorder
-   * @private
+   * @protected
    */
   protected drawBorderShape() {
     [CellBorderPosition.BOTTOM, CellBorderPosition.RIGHT].forEach((type) => {

@@ -2,20 +2,43 @@
  * Utils to render all g supported shape
  * https://github.com/antvis/g
  */
-import { Group, IShape, ShapeAttrs, SimpleBBox } from '@antv/g-canvas';
-import { forEach, isEmpty, set, isFunction } from 'lodash';
-import { GuiIcon, GuiIconCfg } from '@/common/icons/gui-icon';
-import { TextTheme } from '@/common/interface/theme';
+import type {
+  Group,
+  IShape,
+  ShapeAttrs,
+  ShapeCfg,
+  SimpleBBox,
+} from '@antv/g-canvas';
+import { forEach, isEmpty, isFunction, set } from 'lodash';
+import { GuiIcon, type GuiIconCfg } from '../common/icons/gui-icon';
+import type { TextTheme } from '../common/interface/theme';
 
-export function renderRect(group: Group, attrs: ShapeAttrs): IShape {
+export function renderRect(
+  group: Group,
+  attrs: ShapeAttrs,
+  extraParams?: Omit<ShapeCfg, 'attrs'>,
+): IShape {
   return group?.addShape?.('rect', {
     zIndex: 1,
     attrs,
+    ...(extraParams || {}),
   });
 }
 
 export function renderPolygon(group: Group, attrs: ShapeAttrs): IShape {
   return group?.addShape?.('polygon', {
+    attrs,
+  });
+}
+
+export function renderPolyline(group: Group, attrs: ShapeAttrs): IShape {
+  return group?.addShape?.('polyline', {
+    attrs,
+  });
+}
+
+export function renderCircle(group: Group, attrs: ShapeAttrs): IShape {
+  return group?.addShape?.('circle', {
     attrs,
   });
 }
@@ -31,7 +54,9 @@ export function renderText(
 ): IShape {
   if (!isEmpty(shapes) && group) {
     forEach(shapes, (shape: IShape) => {
-      if (group.contain(shape)) group.removeChild(shape, true);
+      if (group.contain(shape)) {
+        group.removeChild(shape, true);
+      }
     });
   }
   return group?.addShape?.('text', {

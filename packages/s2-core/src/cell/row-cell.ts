@@ -1,33 +1,43 @@
-import { Point } from '@antv/g-canvas';
+import type { Point } from '@antv/g-canvas';
 import { GM } from '@antv/g-gesture';
-import { shouldAddResizeArea } from './../utils/interaction/resize';
-import { HeaderCell } from './header-cell';
-import { isMobile } from '@/utils/is-mobile';
+import { find, get } from 'lodash';
 import {
   CellTypes,
   KEY_GROUP_ROW_RESIZE_AREA,
   ResizeAreaEffect,
   ResizeDirectionType,
   S2Event,
-} from '@/common/constant';
-import { CellBorderPosition, TextTheme } from '@/common/interface';
-import { RowHeaderConfig } from '@/facet/header/row';
+} from '../common/constant';
 import {
-  getTextAndFollowingIconPosition,
+  CellBorderPosition,
+  type TextTheme,
+  type ViewMeta,
+} from '../common/interface';
+import type { RowHeaderConfig } from '../facet/header/row';
+import {
   getBorderPositionAndStyle,
-} from '@/utils/cell/cell';
-import { renderLine, renderRect, renderTreeIcon } from '@/utils/g-renders';
-import { getAllChildrenNodeHeight } from '@/utils/get-all-children-node-height';
-import { getAdjustPosition } from '@/utils/text-absorption';
+  getTextAndFollowingIconPosition,
+} from '../utils/cell/cell';
 import {
-  getResizeAreaAttrs,
+  renderCircle,
+  renderLine,
+  renderRect,
+  renderTreeIcon,
+} from '../utils/g-renders';
+import { getAllChildrenNodeHeight } from '../utils/get-all-children-node-height';
+import {
   getOrCreateResizeAreaGroupById,
-} from '@/utils/interaction/resize';
+  getResizeAreaAttrs,
+} from '../utils/interaction/resize';
+import { isMobile } from '../utils/is-mobile';
+import { getAdjustPosition } from '../utils/text-absorption';
+import { shouldAddResizeArea } from './../utils/interaction/resize';
+import { HeaderCell } from './header-cell';
 
 export class RowCell extends HeaderCell {
-  protected headerConfig: RowHeaderConfig;
+  protected declare headerConfig: RowHeaderConfig;
 
-  private gm: GM;
+  protected gm: GM;
 
   public get cellType() {
     return CellTypes.ROW_CELL;
@@ -40,20 +50,21 @@ export class RowCell extends HeaderCell {
 
   protected initCell() {
     super.initCell();
-    // 1、draw rect background
+    // 绘制单元格背景
     this.drawBackgroundShape();
+    // 绘制交互背景
     this.drawInteractiveBgShape();
-
-    // draw icon
-    this.drawTreeIcon();
-    // draw text
+    // 绘制单元格文本
     this.drawTextShape();
-
-    // draw bottom border
+    // 绘制树状模式收起展开的 icon
+    this.drawTreeIcon();
+    // 绘制树状模式下子节点层级占位圆点
+    this.drawTreeLeafNodeAlignDot();
+    // 绘制单元格边框
     this.drawRectBorder();
-    // draw hot-spot rect
+    // 绘制 resize 热区
     this.drawResizeAreaInLeaf();
-    // draw action icon shapes: trend icon, drill-down icon ...
+    // 绘制 action icons
     this.drawActionIcons();
     this.update();
   }
@@ -72,16 +83,39 @@ export class RowCell extends HeaderCell {
   protected drawInteractiveBgShape() {
     this.stateShapes.set(
       'interactiveBgShape',
-      renderRect(this, {
-        ...this.getCellArea(),
-        fill: 'transparent',
-        stroke: 'transparent',
-      }),
+      renderRect(
+        this,
+        {
+          ...this.getCellArea(),
+        },
+        {
+          visible: false,
+        },
+      ),
     );
   }
 
-  private showTreeIcon() {
+  protected showTreeIcon() {
     return this.spreadsheet.isHierarchyTreeType() && !this.meta.isLeaf;
+  }
+
+  protected showTreeLeafNodeAlignDot() {
+    return (
+      this.spreadsheet.options.style?.showTreeLeafNodeAlignDot &&
+      this.spreadsheet.isHierarchyTreeType()
+    );
+  }
+
+  // 获取树状模式下叶子节点的父节点收起展开 icon 图形属性
+  protected getParentTreeIconCfg() {
+    if (
+      !this.showTreeLeafNodeAlignDot() ||
+      !this.spreadsheet.isHierarchyTreeType() ||
+      !this.meta.isLeaf
+    ) {
+      return;
+    }
+    return get(this.meta, 'parent.belongsCell.treeIcon.cfg');
   }
 
   // draw tree icon
@@ -155,6 +189,26 @@ export class RowCell extends HeaderCell {
     }
   }
 
+  protected drawTreeLeafNodeAlignDot() {
+    const parentTreeIconCfg = this.getParentTreeIconCfg();
+    if (!parentTreeIconCfg) {
+      return;
+    }
+    const { size, margin } = this.getStyle().icon;
+    const x = parentTreeIconCfg.x + size + margin.right;
+    const textY = this.getTextPosition().y;
+
+    const { fill, fontSize } = this.getTextStyle();
+    const r = size / 5; // 半径，暂时先写死，后面看是否有这个点点的定制需求
+    this.treeLeafNodeAlignDot = renderCircle(this, {
+      x: x + size / 2, // 和收起展开 icon 保持居中对齐
+      y: textY + (fontSize - r) / 2,
+      r,
+      fill,
+      fillOpacity: 0.3, // 暂时先写死，后面看是否有这个点点的定制需求
+    });
+  }
+
   // draw text
   protected drawTextShape() {
     super.drawTextShape();
@@ -191,7 +245,7 @@ export class RowCell extends HeaderCell {
   protected drawResizeAreaInLeaf() {
     if (
       !this.meta.isLeaf ||
-      !this.shouldDrawResizeAreaByType('rowCellVertical')
+      !this.shouldDrawResizeAreaByType('rowCellVertical', this)
     ) {
       return;
     }
@@ -253,6 +307,7 @@ export class RowCell extends HeaderCell {
           offsetY,
           width,
           height,
+          meta: this.meta,
         }),
         x: offsetX,
         y: offsetY + height - resizeStyle.size / 2,
@@ -265,7 +320,7 @@ export class RowCell extends HeaderCell {
     if (!this.spreadsheet.isHierarchyTreeType()) {
       return 0;
     }
-    const { icon } = this.getStyle();
+    const { icon, cell } = this.getStyle();
     const iconWidth = icon.size + icon.margin.right;
 
     let parent = this.meta.parent;
@@ -276,6 +331,9 @@ export class RowCell extends HeaderCell {
       }
       parent = parent.parent;
     }
+    if (this.showTreeLeafNodeAlignDot()) {
+      sum += this.isTreeLevel() ? 0 : cell.padding.right + icon.margin.right;
+    }
 
     return sum;
   }
@@ -283,19 +341,40 @@ export class RowCell extends HeaderCell {
   protected getTextIndent() {
     const { size, margin } = this.getStyle().icon;
     const contentIndent = this.getContentIndent();
-    const treeIconWidth = this.showTreeIcon() ? size + margin.right : 0;
+    const treeIconWidth =
+      this.showTreeIcon() ||
+      (this.isTreeLevel() && this.showTreeLeafNodeAlignDot())
+        ? size + margin.right
+        : 0;
     return contentIndent + treeIconWidth;
   }
 
-  protected getTextStyle(): TextTheme {
-    const { isLeaf, isTotals } = this.meta;
-    const { text, bolderText } = this.getStyle();
-    const style = isLeaf && !isTotals ? text : bolderText;
+  // 判断当前节点的兄弟节点是否叶子节点
+  protected isTreeLevel() {
+    return find(
+      get(this.meta, 'parent.children'),
+      (cell: ViewMeta) => !cell.isLeaf,
+    );
+  }
 
-    return {
-      ...style,
-      textBaseline: 'top',
-    };
+  protected isBolderText() {
+    // 非叶子节点、小计总计，均为粗体
+    const { isLeaf, isTotals, level } = this.meta;
+    return (!isLeaf && level === 0) || isTotals;
+  }
+
+  protected getTextStyle(): TextTheme {
+    const { text, bolderText, measureText } = this.getStyle();
+    let style: TextTheme;
+    if (this.isMeasureField()) {
+      style = measureText || text;
+    } else if (this.isBolderText()) {
+      style = bolderText;
+    } else {
+      style = text;
+    }
+
+    return { ...style, textBaseline: 'top' };
   }
 
   protected getIconPosition() {
@@ -351,7 +430,7 @@ export class RowCell extends HeaderCell {
     return width - this.getTextIndent() - this.getActionIconsWidth();
   }
 
-  private getTextArea() {
+  protected getTextArea() {
     const content = this.getContentArea();
     const textIndent = this.getTextIndent();
     return {
@@ -380,11 +459,10 @@ export class RowCell extends HeaderCell {
       this.getIconStyle(),
       this.getActionIconsCount(),
     ).text.x;
-
     return { x: textX, y: textY };
   }
 
-  private getIconYPosition() {
+  protected getIconYPosition() {
     const textY = this.getTextPosition().y;
     const { size } = this.getStyle().icon;
     const { fontSize } = this.getTextStyle();

@@ -1,11 +1,12 @@
 /**
  * @Description: 请严格要求 svg 的 viewBox，若设计产出的 svg 不是此规格，请叫其修改为 '0 0 1024 1024'
  */
-import { Group, Shape, ShapeAttrs } from '@antv/g-canvas';
+import { Group, Shape, type ShapeAttrs } from '@antv/g-canvas';
 import { omit, clone } from 'lodash';
 import { getIcon } from './factory';
 
 const STYLE_PLACEHOLDER = '<svg';
+
 // Image 缓存
 const ImageCache: Record<string, HTMLImageElement> = {};
 
@@ -17,8 +18,10 @@ export interface GuiIconCfg extends ShapeAttrs {
  * 使用 iconfont 上的 svg 来创建 Icon
  */
 export class GuiIcon extends Group {
+  static type = '__GUI_ICON__';
+
   // icon 对应的 GImage 对象
-  private image: Shape.Image;
+  public iconImageShape: Shape.Image;
 
   constructor(cfg: GuiIconCfg) {
     super(cfg);
@@ -66,12 +69,13 @@ export class GuiIcon extends Group {
           svg = svg.replace(/fill=[\'\"]#?\w+[\'\"]/g, ''); // 移除 fill="red|#fff"
           svg = svg.replace(/fill>/g, '>'); // fill> 替换为 >
         }
+        svg = svg.replace(
+          STYLE_PLACEHOLDER,
+          `${STYLE_PLACEHOLDER} fill="${fill}"`,
+        );
+        // 兼容 Firefox: https://github.com/antvis/S2/issues/1571 https://stackoverflow.com/questions/30733607/svg-data-image-not-working-as-a-background-image-in-a-pseudo-element/30733736#30733736
         // https://www.chromestatus.com/features/5656049583390720
-        // # 井号不能当做svg的body，这个bug在chrome72已经修复.
-        svg = svg
-          .replace(STYLE_PLACEHOLDER, `${STYLE_PLACEHOLDER} fill="${fill}"`)
-          .replace(/#/g, '%23');
-        img.src = `data:image/svg+xml;utf-8,${svg}`;
+        img.src = `data:image/svg+xml;utf-8,${encodeURIComponent(svg)}`;
       }
     });
   }
@@ -85,8 +89,12 @@ export class GuiIcon extends Group {
   private render() {
     const { name, fill } = this.cfg;
     const attrs = clone(this.cfg);
+    const imageShapeAttrs: ShapeAttrs = {
+      ...omit(attrs, 'fill'),
+      type: GuiIcon.type,
+    };
     const image = new Shape.Image({
-      attrs: omit(attrs, 'fill'),
+      attrs: imageShapeAttrs,
     });
 
     const cacheKey = `${name}-${fill}`;
@@ -106,6 +114,6 @@ export class GuiIcon extends Group {
           console.warn(`GuiIcon ${name} load error`, err);
         });
     }
-    this.image = image;
+    this.iconImageShape = image;
   }
 }

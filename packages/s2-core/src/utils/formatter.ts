@@ -1,6 +1,6 @@
 import { isNaN, toNumber } from 'lodash';
-import { Lang } from '../common/i18n';
-import { PRECISION } from '@/common/constant';
+import { PRECISION } from '../common/constant';
+import { getLang } from '../common/i18n';
 
 const FORMATTERS = {
   en_US: ['KMBTP'.split(''), [1e3, 1e3, 1e3, 1e3, 1e3]],
@@ -22,7 +22,7 @@ const FORMATTERS = {
 export const auto = (
   v: number,
   fixed = 2,
-  formatter = FORMATTERS[Lang] || FORMATTERS.zh_CN,
+  formatter = FORMATTERS[getLang()] || FORMATTERS.zh_CN,
 ): string => {
   if (typeof v !== 'number' || isNaN(v)) {
     return '';
