@@ -97,7 +97,9 @@ export interface TextAlignCfg {
   textBaseline?: TextBaseline;
 }
 
-export interface TextTheme extends TextAlignCfg {
+export interface TextTheme
+  extends TextAlignCfg,
+    Pick<ShapeAttrs, 'fontStyle' | 'fontVariant'> {
   /* 字体 */
   fontFamily?: string;
   /* 字体大小 */
@@ -135,10 +137,12 @@ export interface CellTheme {
   padding?: Padding;
   /* 交互态 */
   interactionState?: InteractionState;
-  /* 单元格内条件格式-迷你条形图高度 */
+  /* @deprecated 已废弃， 请用 miniChartTheme.interval.height代替 */
   miniBarChartHeight?: number;
-  /* 单元格内条件格式-迷你条形图默认填充颜色 */
+  /* @deprecated 已废弃， 请用 miniChartTheme.interval.fill 代替 */
   miniBarChartFillColor?: string;
+  /** 单元格边线虚线 */
+  borderDash?: number[];
 }
 
 export interface IconTheme {
@@ -178,6 +182,10 @@ export interface ScrollBarTheme {
   thumbHoverColor?: string;
   /* 滚动条颜色 */
   thumbColor?: string;
+  /* 滚动条水平最小尺寸 */
+  thumbHorizontalMinSize?: number;
+  /* 滚动条垂直最小尺寸 */
+  thumbVerticalMinSize?: number;
   /* 滚动条尺寸 */
   size?: number;
   /* 滚动条 hover 态尺寸 */
@@ -210,6 +218,8 @@ export interface SplitLine {
     /* 线性变化右侧颜色 */
     right: string;
   };
+  /** 分割线虚线 */
+  borderDash?: number[];
 }
 export interface DefaultCellTheme extends GridAnalysisCellTheme {
   /* 粗体文本样式 */
@@ -270,7 +280,7 @@ export interface ThemeCfg {
   name?: ThemeName;
 }
 
-/* 趋势分析表子弹图状态颜色 */
+/* 子弹图状态颜色 */
 export interface RangeColors {
   /* 满意 */
   good: string;
@@ -284,7 +294,7 @@ export interface RangeColors {
 export interface BulletTheme {
   /* 进度条 */
   progressBar: {
-    /* 子弹图宽度相对整体单元格的占比，小数， default：0.7 */
+    /* 子弹图宽度相对单元格 content 占比，小数 */
     widthPercent: number;
     height: number;
     /* 内高度 */
@@ -295,7 +305,8 @@ export interface BulletTheme {
   comparativeMeasure: {
     width: number;
     height: number;
-    color?: string;
+    fill?: string;
+    color?: string; // @deprecated 已废弃, 请使用 fill 代替 */
     opacity?: number;
   };
 
@@ -330,9 +341,17 @@ export interface BarTheme {
   opacity?: number;
 }
 
+/* 条件格式柱图样式配置 */
+
+export interface IntervalTheme {
+  height: number;
+  fill: string;
+}
+
 /* 迷你图样式 */
 export interface MiniChartTheme {
   line?: LineTheme;
   bar?: BarTheme;
   bullet?: BulletTheme;
+  interval?: IntervalTheme;
 }

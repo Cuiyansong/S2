@@ -1,11 +1,20 @@
 import { createPivotSheet } from 'tests/util/helpers';
+import { createFakeSpreadSheet, createMockCellInfo } from 'tests/util/helpers';
+import { ELLIPSIS_SYMBOL } from '@/common';
 import {
   getEllipsisText,
   getEllipsisTextInner,
   isUpDataValue,
   getCellWidth,
   getEmptyPlaceholder,
+  getContentAreaForMultiData,
+  isZeroOrEmptyValue,
+  isUnchangedValue,
+  safeJsonParse,
+  drawObjectText,
 } from '@/utils/text';
+
+jest.mock('@/utils/g-mini-charts');
 
 const isHD = window.devicePixelRatio >= 2;
 
@@ -32,9 +41,14 @@ describe('Text Utils Tests', () => {
         text: '12',
         maxWidth: 200,
         placeholder: '--',
+        getCellWidth,
       });
 
       expect(text).toEqual('12');
+    });
+
+    test('should get ellipsis symbol', () => {
+      expect(ELLIPSIS_SYMBOL).toEqual('...');
     });
 
     test('should get correct text ellipsis', () => {
@@ -45,7 +59,7 @@ describe('Text Utils Tests', () => {
         placeholder: '--',
       });
 
-      expect(text).toEndWith('...');
+      expect(text).toEndWith(ELLIPSIS_SYMBOL);
       expect(text.length).toBeLessThanOrEqual(5);
     });
 
@@ -88,7 +102,7 @@ describe('Text Utils Tests', () => {
         maxWidth: 24,
       });
 
-      expect(text).toEndWith('...');
+      expect(text).toEndWith(ELLIPSIS_SYMBOL);
       expect(text.length).toBeLessThanOrEqual(4);
     });
 
@@ -98,8 +112,12 @@ describe('Text Utils Tests', () => {
     });
 
     test('should get correct ellipsis text inner', () => {
-      const text = getEllipsisTextInner(measureTextWidth, 'test', 15, font);
-      expect(text).toEqual('t...');
+      expect(getEllipsisTextInner(measureTextWidth, 'test', 15, font)).toEqual(
+        't...',
+      );
+      expect(getEllipsisTextInner(measureTextWidth, 'test', 50, font)).toEqual(
+        'test',
+      );
     });
   });
 
@@ -158,5 +176,248 @@ describe('Text Utils Tests', () => {
     });
 
     expect(placeholder).toEqual('test');
+  });
+
+  test('should get correct content area for multiData without widthPercent', () => {
+    const box = {
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+    };
+
+    const multiData = [
+      [0, 1],
+      [20, 30],
+    ];
+
+    const boxes = getContentAreaForMultiData(box, multiData);
+
+    expect(boxes).toEqual([
+      [
+        {
+          x: 0,
+          y: 0,
+          width: 50,
+          height: 50,
+        },
+        {
+          x: 50,
+          y: 0,
+          width: 50,
+          height: 50,
+        },
+      ],
+      [
+        {
+          x: 0,
+          y: 50,
+          width: 50,
+          height: 50,
+        },
+        {
+          x: 50,
+          y: 50,
+          width: 50,
+          height: 50,
+        },
+      ],
+    ]);
+  });
+
+  test('should get correct content area for multiData with widthPercent', () => {
+    const box = {
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+    };
+
+    const multiData = [
+      [0, 1, 2],
+      [20, 30, 40],
+    ];
+
+    const boxes = getContentAreaForMultiData(box, multiData, [40, 0.2, 0.4]);
+
+    expect(boxes).toEqual([
+      [
+        {
+          x: 0,
+          y: 0,
+          width: 40,
+          height: 50,
+        },
+        {
+          x: 40,
+          y: 0,
+          width: 20,
+          height: 50,
+        },
+        {
+          x: 60,
+          y: 0,
+          width: 40,
+          height: 50,
+        },
+      ],
+      [
+        {
+          x: 0,
+          y: 50,
+          width: 40,
+          height: 50,
+        },
+        {
+          x: 40,
+          y: 50,
+          width: 20,
+          height: 50,
+        },
+        {
+          x: 60,
+          y: 50,
+          width: 40,
+          height: 50,
+        },
+      ],
+    ]);
+  });
+
+  test('should get cell width', () => {
+    expect(getCellWidth({ width: 30 })).toEqual(30);
+    expect(getCellWidth({ width: 30 }, 2)).toEqual(60);
+  });
+
+  test('should safe parse json', () => {
+    const value = {
+      a: [1],
+    };
+    expect(safeJsonParse()).toEqual(null);
+    expect(safeJsonParse('')).toEqual(null);
+    expect(safeJsonParse(JSON.stringify(value))).toEqual(value);
+  });
+});
+
+describe('isZeroOrEmptyValue', () => {
+  test('should return true for zero values', () => {
+    expect(isZeroOrEmptyValue('0.00%')).toBe(true);
+    expect(isZeroOrEmptyValue('-0.00%')).toBe(true);
+    expect(isZeroOrEmptyValue('0.0万亿')).toBe(true);
+    expect(isZeroOrEmptyValue('-0.0万亿')).toBe(true);
+    expect(isZeroOrEmptyValue('0.00万')).toBe(true);
+    expect(isZeroOrEmptyValue('-0.00万')).toBe(true);
+    expect(isZeroOrEmptyValue('0')).toBe(true);
+    expect(isZeroOrEmptyValue('-0')).toBe(true);
+    expect(isZeroOrEmptyValue(0)).toBe(true);
+    expect(isZeroOrEmptyValue(-0)).toBe(true);
+  });
+
+  test('should return false for non-zero values', () => {
+    expect(isZeroOrEmptyValue('0.5%')).toBe(false);
+    expect(isZeroOrEmptyValue('-0.5%')).toBe(false);
+    expect(isZeroOrEmptyValue('0.01万亿')).toBe(false);
+    expect(isZeroOrEmptyValue('-0.01万亿')).toBe(false);
+    expect(isZeroOrEmptyValue('1')).toBe(false);
+    expect(isZeroOrEmptyValue('-1')).toBe(false);
+    expect(isZeroOrEmptyValue(0.1)).toBe(false);
+    expect(isZeroOrEmptyValue(-0.1)).toBe(false);
+  });
+
+  test('should return true for non-numeric values', () => {
+    expect(isZeroOrEmptyValue('abc')).toBe(true);
+    expect(isZeroOrEmptyValue('')).toBe(true);
+    expect(isZeroOrEmptyValue(null)).toBe(true);
+    expect(isZeroOrEmptyValue(undefined)).toBe(true);
+  });
+});
+
+describe('isUnchangedValue', () => {
+  test('should return true for zero values', () => {
+    expect(isUnchangedValue(0, 123)).toBeTruthy();
+    expect(isUnchangedValue('0', 'abc')).toBeTruthy();
+  });
+
+  test('should return true for empty values', () => {
+    expect(isUnchangedValue('', 'abc')).toBeTruthy();
+    expect(isUnchangedValue(null, 123)).toBeTruthy();
+    expect(isUnchangedValue(undefined, 123)).toBeTruthy();
+  });
+
+  test('should return true for unchanged values', () => {
+    expect(isUnchangedValue('test', 'test')).toBeTruthy();
+    expect(isUnchangedValue(123, 123)).toBeTruthy();
+  });
+
+  test('should return true for numberless changed values', () => {
+    expect(isUnchangedValue('test', 'abc')).toBeTruthy();
+  });
+
+  test('should return false for numeric changed values', () => {
+    expect(isUnchangedValue(123, 456)).toBeFalsy();
+  });
+
+  test('should return true for negative zero', () => {
+    expect(isUnchangedValue(-0, 123)).toBeTruthy();
+  });
+
+  test('should return false for negative values', () => {
+    expect(isUnchangedValue(-123, 123)).toBeFalsy();
+  });
+
+  test('should draw custom content', () => {
+    const addTextShape = jest.fn();
+    const s2 = createFakeSpreadSheet({
+      style: {
+        cellCfg: {},
+      },
+    });
+    const cell = createMockCellInfo('test').mockCell;
+
+    cell.getContentArea = () => ({
+      width: 200,
+      height: 200,
+    });
+    cell.getMeta = () => ({
+      spreadsheet: s2,
+    });
+    cell.getStyle = () => ({});
+    cell.addTextShape = addTextShape;
+
+    const errorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementationOnce(() => {});
+
+    function render() {
+      drawObjectText(cell, { values: ['test'] });
+    }
+
+    expect(render).not.toThrowError();
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(addTextShape).toHaveBeenCalledTimes(4);
+  });
+
+  test('should draw custom mini chart', () => {
+    const s2 = createFakeSpreadSheet({
+      style: {
+        cellCfg: {},
+      },
+    });
+    const cell = createMockCellInfo('test').mockCell;
+
+    cell.getContentArea = () => ({
+      width: 200,
+      height: 200,
+    });
+    cell.getMeta = () => ({
+      spreadsheet: s2,
+    });
+    cell.getStyle = () => ({});
+
+    function render() {
+      drawObjectText(cell, { values: { data: 'test' } });
+    }
+
+    expect(render).not.toThrowError();
   });
 });

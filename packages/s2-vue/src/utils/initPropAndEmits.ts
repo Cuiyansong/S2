@@ -1,17 +1,13 @@
-import type { S2DataConfig, S2Options, ThemeCfg } from '@antv/s2';
+import type { S2DataConfig, ThemeCfg } from '@antv/s2';
 import { i18n } from '@antv/s2';
-import type {
-  Adaptive,
-  BaseSheetComponentProps,
-  BaseDataSet,
-  SheetType,
-} from '@antv/s2-shared';
+import type { Adaptive, BaseDataSet, SheetType } from '@antv/s2-shared';
 import type { ExtractPropTypes, PropType } from 'vue';
 import type {
   BaseDrillDownEmitKeys,
   BaseDrillDownEmits,
   BaseSheetInitEmitKeys,
   BaseSheetInitEmits,
+  SheetComponentProps,
 } from '../interface';
 
 export const initBaseSheetProps = () => ({
@@ -19,10 +15,8 @@ export const initBaseSheetProps = () => ({
   dataCfg: Object as PropType<S2DataConfig>,
   themeCfg: Object as PropType<ThemeCfg>,
   showPagination: {
-    type: [Object, Boolean] as PropType<
-      BaseSheetComponentProps['showPagination']
-    >,
-    default: false as BaseSheetComponentProps['showPagination'],
+    type: [Object, Boolean] as PropType<SheetComponentProps['showPagination']>,
+    default: false as SheetComponentProps['showPagination'],
   },
   loading: Boolean,
   // TODO: 待后续完善
@@ -30,17 +24,17 @@ export const initBaseSheetProps = () => ({
   header: Object,
 
   options: {
-    type: Object as PropType<S2Options>,
-    default: {} as S2Options,
+    type: Object as PropType<SheetComponentProps['options']>,
+    default: {} as SheetComponentProps['options'],
   },
   adaptive: {
     type: [Object, Boolean] as PropType<Adaptive>,
     default: false as Adaptive,
   },
-  onSpreadsheet: Function as PropType<BaseSheetComponentProps['spreadsheet']>,
-  onGetSpreadSheet: Function as PropType<
-    BaseSheetComponentProps['getSpreadSheet']
-  >,
+  onSpreadsheet: Function as PropType<SheetComponentProps['spreadsheet']>,
+  /** @deprecated 1.29.0 已废弃, 请使用 onMounted 代替 */
+  onGetSpreadSheet: Function as PropType<SheetComponentProps['getSpreadSheet']>,
+  onMounted: Function as PropType<SheetComponentProps['onMounted']>,
 });
 
 export const initDrillDownProps = () => ({
@@ -82,18 +76,23 @@ export const initBaseSheetEmits = () => {
   const keys: Array<BaseSheetInitEmitKeys> = [
     'spreadsheet',
     'getSpreadSheet',
+
     // ============== Row Cell ====================
     'rowCellHover',
     'rowCellClick',
     'rowCellDoubleClick',
+    'rowCellContextMenu',
     'rowCellMouseDown',
     'rowCellMouseUp',
     'rowCellMouseMove',
     'rowCellCollapseTreeRows',
+    'rowCellScroll',
+
     // ============== Col Cell ====================
     'colCellHover',
     'colCellClick',
     'colCellDoubleClick',
+    'colCellContextMenu',
     'colCellMouseDown',
     'colCellMouseUp',
     'colCellMouseMove',
@@ -102,6 +101,7 @@ export const initBaseSheetEmits = () => {
     'dataCellHover',
     'dataCellClick',
     'dataCellDoubleClick',
+    'dataCellContextMenu',
     'dataCellMouseDown',
     'dataCellMouseUp',
     'dataCellMouseMove',
@@ -113,6 +113,7 @@ export const initBaseSheetEmits = () => {
     'cornerCellHover',
     'cornerCellClick',
     'cornerCellDoubleClick',
+    'cornerCellContextMenu',
     'cornerCellMouseDown',
     'cornerCellMouseUp',
     'cornerCellMouseMove',
@@ -121,6 +122,7 @@ export const initBaseSheetEmits = () => {
     'mergedCellsHover',
     'mergedCellsClick',
     'mergedCellsDoubleClick',
+    'mergedCellsContextMenu',
     'mergedCellsMouseDown',
     'mergedCellsMouseUp',
     'mergedCellsMouseMove',
@@ -137,12 +139,14 @@ export const initBaseSheetEmits = () => {
     'layoutAfterHeaderLayout',
     'layoutPagination',
     'layoutCellScroll',
+    'layoutCollapseRows',
     'layoutAfterCollapseRows',
     'collapseRowsAll',
     'layoutColsExpanded',
     'layoutColsHidden',
     'beforeRender',
     'afterRender',
+    'mounted',
     'destroy',
 
     // ============== Resize ====================
@@ -162,16 +166,23 @@ export const initBaseSheetEmits = () => {
     'keyBoardUp',
     'copied',
     'actionIconHover',
-    'contextMenu',
     'actionIconClick',
+    'contextMenu',
     'mouseHover',
     'mouseUp',
+    'mouseMove',
+    'mouseDown',
     'selected',
     'reset',
     'linkFieldJump',
     'click',
     'doubleClick',
     'scroll',
+    'hover',
+    // ============== Auto 自动生成的 ================
+    'layoutAfterRealDataCellRender',
+    'rowCellBrushSelection',
+    'colCellBrushSelection',
   ];
   return keys as unknown as BaseSheetInitEmits;
 };

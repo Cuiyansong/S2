@@ -1,4 +1,3 @@
-export { splitTotal } from './data-set-operate';
 export { auto } from './formatter';
 export * from './layout';
 export * from './text';
@@ -16,3 +15,4 @@ export * from './get-classnames';
 export * from './cell/cell';
 export * from './cell/data-cell';
 export * from './sort-action';
+export * from './canvas';

@@ -3,7 +3,7 @@
  * https://github.com/antvis/g
  */
 
-import { get, isEmpty, map, max, min } from 'lodash';
+import { get, isEmpty, isNil, map, max, min } from 'lodash';
 import type {
   BaseChartData,
   BulletValue,
@@ -19,7 +19,10 @@ import {
   renderText,
 } from '../utils/g-renders';
 import { CellTypes, MiniChartTypes } from '../common/constant';
-import { getEllipsisText } from './text';
+import { parseNumberWithPrecision } from '../utils/formatter';
+import { getIntervalScale } from '../utils/condition/condition';
+import type { DataCell } from '..';
+import { getEllipsisText, getEmptyPlaceholder } from './text';
 
 interface FractionDigitsOptions {
   min: number;
@@ -221,17 +224,82 @@ export const transformRatioToPercent = (
   return formatter.format(value);
 };
 
+// ========================= 条件格式柱图相关 ==============================
+
+/**
+ *  绘制单元格内的 条件格式 柱图
+ */
+export const drawInterval = (cell: DataCell) => {
+  if (isEmpty(cell)) {
+    return;
+  }
+
+  const { x, y, height, width } = cell.getCellArea();
+
+  const intervalCondition = cell.findFieldCondition(
+    cell.cellConditions?.interval,
+  );
+
+  if (intervalCondition && intervalCondition.mapping) {
+    const attrs = cell.mappingValue(intervalCondition);
+    if (!attrs) {
+      return;
+    }
+
+    const valueRange = attrs.isCompare ? attrs : cell.valueRangeByField;
+
+    const minValue = parseNumberWithPrecision(valueRange.minValue);
+    const maxValue = parseNumberWithPrecision(valueRange.maxValue);
+
+    const fieldValue = isNil(attrs?.fieldValue)
+      ? parseNumberWithPrecision(cell.getMeta().fieldValue as number)
+      : parseNumberWithPrecision(attrs?.fieldValue);
+    // 对于超出设定范围的值不予显示
+    if (fieldValue < minValue || fieldValue > maxValue) {
+      return;
+    }
+    const barChartHeight =
+      cell.getStyle().miniChart.interval?.height ??
+      cell.getStyle().cell.miniBarChartHeight;
+    const barChartFillColor =
+      cell.getStyle().miniChart.interval?.fill ??
+      cell.getStyle().cell.miniBarChartFillColor;
+
+    const getScale = getIntervalScale(minValue, maxValue);
+    const { zeroScale, scale: intervalScale } = getScale(fieldValue);
+
+    const fill = attrs.fill ?? barChartFillColor;
+
+    return renderRect(cell, {
+      x: x + width * zeroScale,
+      y: y + height / 2 - barChartHeight / 2,
+      width: width * intervalScale,
+      height: barChartHeight,
+      fill,
+    });
+  }
+};
+
 /**
  *  绘制单元格内的 mini子弹图
  */
 export const drawBullet = (value: BulletValue, cell: S2CellType) => {
+  const dataCellStyle = cell.getStyle(CellTypes.DATA_CELL);
+  const { x, y, height, width, spreadsheet } = cell.getMeta();
+
   if (isEmpty(value)) {
+    renderText(
+      cell,
+      [],
+      x + width - dataCellStyle.cell.padding.right,
+      y + height / 2,
+      getEmptyPlaceholder(cell, spreadsheet.options.placeholder),
+      dataCellStyle.text,
+    );
     return;
   }
 
-  const dataCellStyle = cell.getStyle(CellTypes.DATA_CELL);
   const bulletStyle = dataCellStyle.miniChart.bullet;
-  const { x, y, height, width, spreadsheet } = cell.getMeta();
   const { progressBar, comparativeMeasure, rangeColors, backgroundColor } =
     bulletStyle;
 
@@ -244,19 +312,22 @@ export const drawBullet = (value: BulletValue, cell: S2CellType) => {
   // 所以子弹图需要为数值预留宽度
   // 对于负数, 进度条计算按照 0 处理, 但是展示还是要显示原来的百分比
   const measurePercent = transformRatioToPercent(measure, 2);
-  const measurePercentWidth = Math.ceil(
-    spreadsheet.measureTextWidth(measurePercent, dataCellStyle),
-  );
-
-  const bulletWidth = progressBar.widthPercent * width - measurePercentWidth;
-  const measureWidth = width - bulletWidth;
+  const widthPercent =
+    progressBar?.widthPercent > 1
+      ? progressBar?.widthPercent / 100
+      : progressBar?.widthPercent;
 
   const padding = dataCellStyle.cell.padding;
+  const contentWidth = width - padding.left - padding.right;
+
+  // 子弹图先占位(bulletWidth)，剩下空间给文字(measureWidth)
+  const bulletWidth = widthPercent * contentWidth;
+  const measureWidth = contentWidth - bulletWidth;
 
   // TODO 先支持默认右对齐
   // 绘制子弹图
   // 1. 背景
-  const positionX = x + width - padding.right - padding.left - bulletWidth;
+  const positionX = x + width - padding.right - bulletWidth;
   const positionY = y + height / 2 - progressBar.height / 2;
 
   renderRect(cell, {
@@ -303,7 +374,7 @@ export const drawBullet = (value: BulletValue, cell: S2CellType) => {
         comparativeMeasure.height,
     },
     {
-      stroke: comparativeMeasure.color,
+      stroke: comparativeMeasure?.fill || comparativeMeasure?.color,
       lineWidth: comparativeMeasure.width,
       opacity: comparativeMeasure?.opacity,
     },
@@ -318,14 +389,14 @@ export const drawBullet = (value: BulletValue, cell: S2CellType) => {
     getEllipsisText({
       measureTextWidth: spreadsheet.measureTextWidth,
       text: measurePercent,
-      maxWidth: measureWidth,
+      maxWidth: measureWidth - padding.right,
       fontParam: dataCellStyle.text,
     }),
     dataCellStyle.text,
   );
 };
 
-export const renderMiniChart = (data: MiniChartData, cell: S2CellType) => {
+export const renderMiniChart = (cell: S2CellType, data?: MiniChartData) => {
   switch (data?.type) {
     case MiniChartTypes.Line:
       drawLine(data, cell);

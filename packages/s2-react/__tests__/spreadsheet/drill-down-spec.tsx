@@ -41,7 +41,7 @@ const partDrillDownParams: SheetComponentsProps['partDrillDown'] = {
 
 const findDrillDownIcon = (instance: SpreadSheet) => {
   const rowHeaderActionIcons = get(
-    (instance.facet.rowHeader.getChildren() as RowCell[]).find(
+    (instance.facet.rowHeader.getChildren()[0].getChildren() as RowCell[]).find(
       (item) => item.getActualText() === '杭州',
     ),
     'actionIcons',
@@ -73,7 +73,7 @@ describe('Spread Sheet Drill Down Tests', () => {
         <SheetComponent
           options={s2Options}
           dataCfg={mockDataConfig}
-          getSpreadSheet={(instance) => {
+          onMounted={(instance) => {
             s2Instance = instance;
           }}
           partDrillDown={partDrillDownParams}
@@ -105,7 +105,7 @@ describe('Spread Sheet Drill Down Tests', () => {
             ],
           }}
           dataCfg={mockDataConfig}
-          getSpreadSheet={(instance) => {
+          onMounted={(instance) => {
             s2Instance = instance;
           }}
           partDrillDown={partDrillDownParams}
@@ -134,7 +134,7 @@ describe('Spread Sheet Drill Down Tests', () => {
               values: [],
             },
           })}
-          getSpreadSheet={(instance) => {
+          onMounted={(instance) => {
             s2 = instance;
           }}
           partDrillDown={partDrillDownParams}
@@ -160,7 +160,7 @@ describe('Spread Sheet Drill Down Tests', () => {
         <SheetComponent
           options={s2Options}
           dataCfg={mockDataConfig}
-          getSpreadSheet={(instance) => {
+          onMounted={(instance) => {
             s2 = instance;
           }}
           partDrillDown={{

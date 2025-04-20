@@ -9,7 +9,7 @@ import * as dataConfig from 'tests/data/mock-dataset.json';
 import { RootInteraction } from '@/interaction/root';
 import { Store } from '@/common/store';
 import type { S2CellType, S2Options, ViewMeta } from '@/common/interface';
-import { PivotSheet, SpreadSheet } from '@/sheet-type';
+import { PivotSheet, SpreadSheet, TableSheet } from '@/sheet-type';
 import type { BaseTooltip } from '@/ui/tooltip';
 import { customMerge } from '@/utils/merge';
 import { DEFAULT_OPTIONS } from '@/common/constant';
@@ -53,18 +53,34 @@ export const createFakeSpreadSheet = () => {
   }
 
   const s2 = new FakeSpreadSheet() as unknown as SpreadSheet;
-  s2.options = DEFAULT_OPTIONS;
+  s2.options = {
+    ...DEFAULT_OPTIONS,
+    hdAdapter: false,
+  };
   s2.dataCfg = {
     meta: null,
     data: [],
     fields: {},
+    sortParams: [],
   };
   s2.container = new Canvas({
     width: DEFAULT_OPTIONS.width,
     height: DEFAULT_OPTIONS.height,
     container,
   });
-  s2.facet = {} as BaseFacet;
+  s2.dataSet = {
+    getMultiData() {
+      return [];
+    },
+    displayFormattedValueMap: new Map(),
+    moreThanOneValue: jest.fn(),
+  } as unknown as any;
+  s2.facet = {
+    layoutResult: {
+      getCellMeta: jest.fn(),
+      rowLeafNodes: [],
+    },
+  } as unknown as BaseFacet;
   s2.facet.panelBBox = {
     maxX: s2.options.width,
     maxY: s2.options.height,
@@ -81,6 +97,9 @@ export const createFakeSpreadSheet = () => {
   s2.showTooltipWithInfo = jest.fn();
   s2.isTableMode = jest.fn();
   s2.isPivotMode = jest.fn();
+  s2.measureTextWidth = jest.fn();
+  s2.getRowNodes = jest.fn().mockReturnValue([]);
+  s2.getColumnNodes = jest.fn().mockReturnValue([]);
   s2.getCanvasElement = () => s2.container.get('el');
 
   const interaction = new RootInteraction(s2 as unknown as SpreadSheet);
@@ -113,12 +132,14 @@ export function getGradient(
 
 export const createMockCellInfo = (
   cellId: string,
-  { colIndex = 0, rowIndex = 0 } = {},
+  { colIndex = 0, rowIndex = 0, colId = '0' } = {},
 ) => {
   const mockCellViewMeta: Partial<ViewMeta> = {
     id: cellId,
+    field: cellId,
     colIndex,
     rowIndex,
+    colId,
     type: undefined,
     x: 0,
     y: 0,
@@ -131,6 +152,11 @@ export const createMockCellInfo = (
       dataSet: {
         getFieldDescription: jest.fn(),
       },
+      facet: {
+        layoutResult: {
+          getCellMeta: jest.fn(),
+        },
+      } as unknown as BaseFacet,
     } as unknown as SpreadSheet,
   };
   const mockCellMeta = omit(mockCellViewMeta, [
@@ -138,6 +164,8 @@ export const createMockCellInfo = (
     'y',
     'update',
     'spreadsheet',
+    'colId',
+    'field',
   ]);
   const mockCell = {
     ...mockCellViewMeta,
@@ -147,6 +175,7 @@ export const createMockCellInfo = (
     getFieldValue: jest.fn(),
     hideInteractionShape: jest.fn(),
     updateByState: jest.fn(),
+    isTextOverflowing: jest.fn(),
   } as unknown as S2CellType;
 
   return {
@@ -162,6 +191,23 @@ export const createPivotSheet = (
   return new PivotSheet(
     getContainer(),
     useSimpleData ? simpleDataConfig : dataConfig,
-    s2Options,
+    {
+      hdAdapter: false,
+      ...s2Options,
+    },
+  );
+};
+
+export const createTableSheet = (
+  s2Options: S2Options,
+  { useSimpleData } = { useSimpleData: true },
+) => {
+  return new TableSheet(
+    getContainer(),
+    useSimpleData ? simpleDataConfig : dataConfig,
+    {
+      hdAdapter: false,
+      ...s2Options,
+    },
   );
 };

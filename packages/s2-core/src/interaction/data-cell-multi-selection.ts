@@ -2,6 +2,7 @@ import type { Event } from '@antv/g-canvas';
 import { isEmpty } from 'lodash';
 import type { DataCell } from '../cell';
 import {
+  CellTypes,
   InteractionStateName,
   InterceptType,
   S2Event,
@@ -10,8 +11,10 @@ import type { CellMeta, S2CellType, ViewMeta } from '../common/interface';
 import {
   getCellMeta,
   isMultiSelectionKey,
+  isMouseEventWithMeta,
 } from '../utils/interaction/select-event';
-import { getActiveCellsTooltipData } from '../utils/tooltip';
+import { getCellsTooltipData } from '../utils/tooltip';
+import { afterSelectDataCells } from '../utils/interaction/select-event';
 import { BaseEvent, type BaseEventImplement } from './base-interaction';
 
 export class DataCellMultiSelection
@@ -24,6 +27,7 @@ export class DataCellMultiSelection
     this.bindKeyboardDown();
     this.bindDataCellClick();
     this.bindKeyboardUp();
+    this.bindMouseMove();
   }
 
   public reset() {
@@ -51,10 +55,19 @@ export class DataCellMultiSelection
     });
   }
 
+  private bindMouseMove() {
+    this.spreadsheet.on(S2Event.GLOBAL_MOUSE_MOVE, (event) => {
+      // 当快捷键被系统拦截后，按需补充调用一次 reset
+      if (this.isMultiSelection && !isMouseEventWithMeta(event)) {
+        this.reset();
+      }
+    });
+  }
+
   private getSelectedCells(cell: S2CellType<ViewMeta>) {
     const id = cell.getMeta().id;
     const { interaction } = this.spreadsheet;
-    let selectedCells = interaction.getCells();
+    let selectedCells = interaction.getCells([CellTypes.DATA_CELL]);
     let cells: CellMeta[] = [];
     if (interaction.getCurrentStateName() !== InteractionStateName.SELECTED) {
       selectedCells = [];
@@ -81,14 +94,20 @@ export class DataCellMultiSelection
         if (isEmpty(selectedCells)) {
           interaction.clearState();
           this.spreadsheet.hideTooltip();
+          this.spreadsheet.emit(
+            S2Event.GLOBAL_SELECTED,
+            interaction.getActiveCells(),
+          );
           return;
         }
 
         interaction.addIntercepts([InterceptType.CLICK, InterceptType.HOVER]);
         this.spreadsheet.hideTooltip();
+
         interaction.changeState({
           cells: selectedCells,
           stateName: InteractionStateName.SELECTED,
+          onUpdateCells: afterSelectDataCells,
         });
         this.spreadsheet.emit(
           S2Event.GLOBAL_SELECTED,
@@ -96,7 +115,7 @@ export class DataCellMultiSelection
         );
         this.spreadsheet.showTooltipWithInfo(
           event,
-          getActiveCellsTooltipData(this.spreadsheet),
+          getCellsTooltipData(this.spreadsheet),
         );
       }
     });

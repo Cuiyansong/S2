@@ -1,5 +1,5 @@
-import { isUpDataValue } from '@antv/s2';
-import type { S2DataConfig, S2Options } from '@antv/s2';
+import { isUpDataValue, type Columns, customMerge } from '@antv/s2';
+import type { S2DataConfig, ThemeCfg } from '@antv/s2';
 import { getBaseSheetComponentOptions } from '@antv/s2-shared';
 import type { SliderSingleProps } from 'antd';
 import {
@@ -8,13 +8,34 @@ import {
   meta,
   fields,
 } from '../__tests__/data/mock-dataset.json';
+import type { SheetComponentOptions } from '../src/components';
+
+export const tableSheetSingleColumns: Columns = [
+  'province',
+  'city',
+  'type',
+  'sub_type',
+  'number',
+];
+
+export const tableSheetMultipleColumns: Columns = [
+  {
+    key: 'area',
+    children: ['province', 'city'],
+  },
+  'type',
+  {
+    key: 'money',
+    children: [{ key: 'price' }, 'number'],
+  },
+];
 
 export const tableSheetDataCfg: S2DataConfig = {
   data,
   totalData,
-  meta,
+  meta: [{ field: 'number', formatter: (v) => `${v}-@` }, ...meta],
   fields: {
-    columns: ['province', 'city', 'type', 'sub_type', 'number'],
+    columns: tableSheetSingleColumns,
   },
 };
 
@@ -25,30 +46,111 @@ export const pivotSheetDataCfg: S2DataConfig = {
   fields,
 };
 
-export const s2Options: S2Options = {
+export const pivotSheetDataCfgForCompactMode = customMerge(pivotSheetDataCfg, {
+  data: [
+    ...pivotSheetDataCfg.data,
+    {
+      province: '浙江',
+      city: '杭州',
+      type: '笔',
+      price: '11111111',
+    },
+    {
+      province: '浙江',
+      city: '杭州',
+      type: '纸张',
+      price: '2',
+    },
+    {
+      province: '浙江',
+      city: '舟山',
+      type: '笔',
+      price: '2',
+    },
+    {
+      province: '浙江',
+      city: '舟山',
+      type: '纸张',
+      price: '133.333',
+    },
+  ],
+});
+
+export const s2Options: SheetComponentOptions = {
   debug: true,
   width: 600,
   height: 400,
+  frozenFirstRow: false,
   showSeriesNumber: false,
   interaction: {
     enableCopy: true,
+    copyWithHeader: true,
+    copyWithFormat: true,
     // 防止 mac 触摸板横向滚动触发浏览器返回, 和移动端下拉刷新
-    overscrollBehavior: 'contain',
+    overscrollBehavior: 'none',
+    brushSelection: {
+      data: true,
+      col: true,
+      row: true,
+    },
   },
   tooltip: {
+    showTooltip: true,
     operation: {
       trend: true,
     },
   },
-  hierarchyType: 'grid',
+  conditions: {
+    text: [],
+    interval: [
+      {
+        field: 'number',
+        mapping() {
+          return {
+            fill: '#80BFFF',
+            // 自定义柱状图范围
+            isCompare: true,
+            maxValue: 8000,
+            minValue: 300,
+          };
+        },
+      },
+    ],
+  },
+  headerActionIcons: [
+    {
+      iconNames: ['SortDown'],
+      belongsCell: 'colCell',
+      defaultHide: true,
+    },
+    {
+      iconNames: ['SortDown'],
+      belongsCell: 'rowCell',
+      defaultHide: true,
+    },
+    {
+      iconNames: ['SortDown'],
+      belongsCell: 'cornerCell',
+      defaultHide: true,
+    },
+  ],
   style: {
+    colCfg: {
+      hideMeasureColumn: false,
+    },
     rowCfg: {
-      width: 200,
+      width: 100,
     },
     cellCfg: {
       height: 50,
+      width: 100,
     },
   },
+};
+
+export const s2ThemeConfig: ThemeCfg = {
+  name: 'default',
+  theme: {},
 };
 
 export const sliderOptions: SliderSingleProps = {
@@ -63,7 +165,7 @@ export const sliderOptions: SliderSingleProps = {
   },
 };
 
-export const mockGridAnalysisOptions: S2Options = {
+export const mockGridAnalysisOptions: SheetComponentOptions = {
   width: 1600,
   height: 600,
   style: {
@@ -72,9 +174,13 @@ export const mockGridAnalysisOptions: S2Options = {
       width: 400,
       height: 100,
       valuesCfg: {
-        widthPercent: [40, 20, 20, 20],
+        widthPercent: [40, 0.2, 0.2, 0.2],
       },
     },
+  },
+  tooltip: { showTooltip: false },
+  interaction: {
+    selectedCellsSpotlight: true,
   },
   conditions: {
     text: [
@@ -95,5 +201,5 @@ export const mockGridAnalysisOptions: S2Options = {
   },
 };
 
-export const defaultOptions: S2Options =
-  getBaseSheetComponentOptions(s2Options);
+export const defaultOptions =
+  getBaseSheetComponentOptions<SheetComponentOptions>(s2Options);

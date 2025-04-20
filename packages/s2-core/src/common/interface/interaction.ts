@@ -1,12 +1,7 @@
 import type { SimpleBBox } from '@antv/g-canvas';
 import type {
-  InteractionStateName,
-  CellTypes,
-  InterceptType,
-  ScrollbarPositionType,
-} from '../constant';
-import type {
   BaseCell,
+  BaseRowCell,
   ColCell,
   CornerCell,
   DataCell,
@@ -15,10 +10,17 @@ import type {
 } from '../../cell';
 import type { HeaderCell } from '../../cell/header-cell';
 import type { Node } from '../../facet/layout/node';
+import type { RootInteraction } from '../../interaction';
 import type { BaseEvent } from '../../interaction/base-event';
 import type { SpreadSheet } from '../../sheet-type';
-import type { ResizeInteractionOptions } from './resize';
+import type {
+  CellTypes,
+  InteractionStateName,
+  InterceptType,
+  ScrollbarPositionType,
+} from '../constant';
 import type { ViewMeta } from './basic';
+import type { ResizeInteractionOptions } from './resize';
 
 export type S2CellType<T extends SimpleBBox = ViewMeta> =
   | DataCell
@@ -26,6 +28,7 @@ export type S2CellType<T extends SimpleBBox = ViewMeta> =
   | ColCell
   | CornerCell
   | RowCell
+  | BaseRowCell
   | MergedCell
   | BaseCell<T>;
 
@@ -34,8 +37,16 @@ export interface CellMeta {
   colIndex: number;
   rowIndex: number;
   type: CellTypes;
+  rowQuery?: Record<string, any>;
+  rowId?: string;
+  colId?: string;
   [key: string]: unknown;
 }
+
+export type OnUpdateCells = (
+  root: RootInteraction,
+  defaultOnUpdateCells: () => void,
+) => void;
 
 export interface InteractionStateInfo {
   // current state name
@@ -48,6 +59,8 @@ export interface InteractionStateInfo {
   nodes?: Node[];
   // for empty cells, updates are ignored, use `force` to skip ignore
   force?: boolean;
+  /** 交互行为改变后，会被更新和重绘的单元格回调 */
+  onUpdateCells?: OnUpdateCells;
 }
 
 export interface SelectHeaderCellInfo {
@@ -65,6 +78,13 @@ export interface CustomInteraction {
   interaction: InteractionConstructor;
 }
 
+export interface Rect {
+  maxX: number;
+  minX: number;
+  maxY: number;
+  minY: number;
+}
+
 export interface BrushPoint {
   rowIndex: number;
   colIndex: number;
@@ -72,6 +92,9 @@ export interface BrushPoint {
   y: number;
   scrollX?: number;
   scrollY?: number;
+  /** 用于标记 row cell 和 col cell 点的 x, y 坐标 */
+  headerX?: number;
+  headerY?: number;
 }
 
 export interface BrushRange {
@@ -83,12 +106,7 @@ export interface BrushRange {
 
 export type StateShapeLayer = 'interactiveBgShape' | 'interactiveBorderShape';
 
-export type Intercept =
-  | InterceptType.HOVER
-  | InterceptType.CLICK
-  | InterceptType.BRUSH_SELECTION
-  | InterceptType.MULTI_SELECTION
-  | InterceptType.RESIZE;
+export type Intercept = InterceptType[keyof InterceptType];
 
 export interface BrushAutoScrollConfigItem {
   value: number;
@@ -108,13 +126,25 @@ export interface HoverFocusOptions {
   duration?: number;
 }
 
+export interface BrushSelection {
+  data?: boolean;
+  row?: boolean;
+  col?: boolean;
+}
+
+export interface BrushSelectionInfo {
+  dataBrushSelection: boolean;
+  rowBrushSelection: boolean;
+  colBrushSelection: boolean;
+}
+
 export interface InteractionOptions {
   // record which row/col field need extra link info
-  linkFields?: string[];
+  linkFields?: string[] | ((meta: Node | ViewMeta) => boolean);
   // focus selected cell, like the spotlight
   selectedCellsSpotlight?: boolean;
   // highlight all row header cells and column header cells to which the hovered cell belongs
-  hoverHighlight?: boolean;
+  hoverHighlight?: boolean | InteractionCellHighlight;
   // keep cell hovered after 800ms duration
   hoverFocus?: boolean | HoverFocusOptions;
   // enable Command + C to copy spread data
@@ -130,8 +160,8 @@ export interface InteractionOptions {
   scrollSpeedRatio?: ScrollSpeedRatio;
   // enable resize area, default set to all enable
   resize?: boolean | ResizeInteractionOptions;
-  // enable mouse drag brush selection
-  brushSelection?: boolean;
+  // enable mouse drag brush selection on data cell, row cell, col cell
+  brushSelection?: boolean | BrushSelection;
   // enable Command / Ctrl + click multi selection
   multiSelection?: boolean;
   // enable Shift + click multi selection
@@ -144,10 +174,19 @@ export interface InteractionOptions {
   // https://developer.mozilla.org/zh-CN/docs/Web/API/EventTarget/addEventListener
   eventListenerOptions?: boolean | AddEventListenerOptions;
   // highlight col and row header for selected cell
-  selectedCellHighlight?: boolean;
+  selectedCellHighlight?: boolean | InteractionCellHighlight;
   // https://developer.mozilla.org/en-US/docs/Web/CSS/overscroll-behavior
   overscrollBehavior?: 'auto' | 'none' | 'contain';
+  // trigger hover after scroll
+  hoverAfterScroll?: boolean;
   /** ***********CUSTOM INTERACTION HOOKS**************** */
   // register custom interactions
   customInteractions?: CustomInteraction[];
+}
+
+export interface InteractionCellHighlight {
+  rowHeader?: boolean; // 高亮行头
+  colHeader?: boolean; // 高亮列头
+  currentRow?: boolean; // 高亮选中单元格所在行
+  currentCol?: boolean; // 高亮选中单元格所在列
 }

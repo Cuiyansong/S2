@@ -3,12 +3,14 @@ import {
   find,
   get,
   identity,
+  isEmpty,
   isNil,
   map,
   max,
   memoize,
   min,
 } from 'lodash';
+import type { CellMeta, Data, RowData, ViewMeta } from '../common';
 import type {
   Fields,
   FilterParam,
@@ -18,12 +20,15 @@ import type {
   SortParams,
 } from '../common/interface';
 import type { ValueRange } from '../common/interface/condition';
+import { replaceEmptyFieldValue } from '../facet/utils';
 import type { SpreadSheet } from '../sheet-type';
 import {
   getValueRangeState,
   setValueRangeState,
 } from '../utils/condition/state-controller';
-import type { CellDataParams, DataType } from './index';
+import { generateExtraFieldMeta } from '../utils/dataset/pivot-data-set';
+import type { Indexes } from '../utils/indexes';
+import type { CellDataParams, DataType, MultiDataParams, Query } from './index';
 
 export abstract class BaseDataSet {
   // 字段域信息
@@ -39,7 +44,7 @@ export abstract class BaseDataSet {
   public totalData: DataType[];
 
   // multidimensional array to indexes data
-  public indexesData: DataType[][] | DataType[];
+  public indexesData: Record<string, DataType[][] | DataType[]>;
 
   // 高级排序, 组内排序
   public sortParams: SortParams;
@@ -47,7 +52,10 @@ export abstract class BaseDataSet {
   public filterParams: FilterParam[];
 
   // 透视表入口对象实例
-  protected spreadsheet: SpreadSheet;
+  public spreadsheet: SpreadSheet;
+
+  // 单元格所对应格式化后的值（用于编辑表）
+  public displayFormattedValueMap = new Map<string, string>();
 
   public constructor(spreadsheet: SpreadSheet) {
     this.spreadsheet = spreadsheet;
@@ -67,7 +75,8 @@ export abstract class BaseDataSet {
    * @param field
    */
   public getFieldName(field: string): string {
-    return get(this.getFieldMeta(field, this.meta), 'name', field);
+    const name = get(this.getFieldMeta(field, this.meta), 'name', field);
+    return replaceEmptyFieldValue(name);
   }
 
   /**
@@ -97,11 +106,31 @@ export abstract class BaseDataSet {
     this.sortParams = sortParams;
     this.filterParams = filterParams;
     this.displayData = this.originData;
-    this.indexesData = [];
+    this.indexesData = {};
+  }
+
+  public processMeta(meta: Meta[] = [], defaultExtraFieldText: string) {
+    return [
+      ...meta,
+      generateExtraFieldMeta(
+        meta,
+        this.spreadsheet?.options?.cornerExtraFieldText,
+        defaultExtraFieldText,
+      ),
+    ];
   }
 
   public getDisplayDataSet() {
-    return this.displayData;
+    return this.displayData || [];
+  }
+
+  public isEmpty() {
+    return isEmpty(this.getDisplayDataSet());
+  }
+
+  // https://github.com/antvis/S2/issues/2255
+  public getEmptyViewIndexes(): Indexes {
+    return [];
   }
 
   public getValueRangeByField(field: string): ValueRange {
@@ -150,7 +179,7 @@ export abstract class BaseDataSet {
    * @param field current dimensions
    * @param query dimension value query
    */
-  public abstract getDimensionValues(field: string, query?: DataType): string[];
+  public abstract getDimensionValues(field: string, query?: Query): string[];
 
   /**
    * In most cases, this function to get the specific
@@ -160,21 +189,19 @@ export abstract class BaseDataSet {
   public abstract getCellData(params: CellDataParams): DataType;
 
   /**
-   * To get a row or column cells data;
-   * if query is empty, return all data
+   * 获取符合 query 的所有单元格数据，如果 query 为空，返回空数组
    * @param query
-   * @param isTotals
-   * @param isRow
-   * @param drillDownFields
+   * @param params 默认获取符合 query 的所有数据，包括小计总计等汇总数据；
+   *               如果只希望获取明细数据，请使用 { queryType: QueryDataType.DetailOnly }
    */
-  public abstract getMultiData(
-    query: DataType,
-    isTotals?: boolean,
-    isRow?: boolean,
-    drillDownFields?: string[],
-  ): DataType[];
+  public abstract getMultiData(query: Query, params?: MultiDataParams): Data[];
 
   public moreThanOneValue() {
     return this.fields?.values?.length > 1;
   }
+
+  /**
+   * get a row cells data including cell
+   */
+  public abstract getRowData(cellMeta: CellMeta | ViewMeta | Node): RowData;
 }

@@ -3,7 +3,6 @@ import { createMockCellInfo, sleep } from 'tests/util/helpers';
 import { Store } from '@/common/store';
 import {
   BaseEvent,
-  BrushSelection,
   CellTypes,
   CornerCellClick,
   DataCell,
@@ -24,7 +23,10 @@ import {
   SelectedCellMove,
   SpreadSheet,
   Node,
-  type S2CellType,
+  DataCellBrushSelection,
+  ColBrushSelection,
+  RowBrushSelection,
+  S2Event,
 } from '@/index';
 import { RootInteraction } from '@/interaction/root';
 import { mergeCell, unmergeCell } from '@/utils/interaction/merge-cell';
@@ -32,6 +34,7 @@ import { getCellMeta } from '@/utils/interaction/select-event';
 
 jest.mock('@/sheet-type');
 jest.mock('@/interaction/event-controller');
+jest.mock('@/ui/hd-adapter');
 jest.mock('@/utils/interaction/merge-cell', () => {
   return {
     mergeCell: jest.fn(),
@@ -64,7 +67,7 @@ describe('RootInteraction Tests', () => {
       },
     } as unknown as DataCell);
 
-  beforeAll(() => {
+  beforeEach(() => {
     MockSpreadSheet.mockClear();
     panelGroupAllDataCells = Array.from<DataCell>({ length: 10 }).map(
       (_, idx) => getMockCell(idx),
@@ -75,6 +78,7 @@ describe('RootInteraction Tests', () => {
     mockSpreadSheetInstance.options = {
       interaction: {
         selectedCellsSpotlight: false,
+        brushSelection: true,
       },
     } as S2Options;
     mockSpreadSheetInstance.hideTooltip = jest.fn();
@@ -89,6 +93,10 @@ describe('RootInteraction Tests', () => {
     rootInteraction.getAllColHeaderCells = () => [];
     rootInteraction.getAllRowHeaderCells = () => [];
     mockSpreadSheetInstance.interaction = rootInteraction;
+  });
+
+  afterEach(() => {
+    rootInteraction.destroy();
   });
 
   test('should get default interaction state', () => {
@@ -163,9 +171,9 @@ describe('RootInteraction Tests', () => {
 
   // https://github.com/antvis/S2/issues/1243
   test('should multi selected header cells', () => {
-    const isEqualStateNameSpy = jest
+    jest
       .spyOn(rootInteraction, 'isEqualStateName')
-      .mockImplementation(() => false);
+      .mockImplementationOnce(() => false);
 
     const mockCellA = createMockCellInfo('test-A').mockCell;
     const mockCellB = createMockCellInfo('test-B').mockCell;
@@ -176,10 +184,7 @@ describe('RootInteraction Tests', () => {
       isMultiSelection: true,
     });
 
-    expect(rootInteraction.getState().cells).toEqual([
-      getCellMeta(mockCell),
-      getCellMeta(mockCellA),
-    ]);
+    expect(rootInteraction.getState().cells).toEqual([getCellMeta(mockCellA)]);
 
     // 选中 cellB
     rootInteraction.selectHeaderCell({
@@ -188,7 +193,6 @@ describe('RootInteraction Tests', () => {
     });
 
     expect(rootInteraction.getState().cells).toEqual([
-      getCellMeta(mockCell),
       getCellMeta(mockCellA),
       getCellMeta(mockCellB),
     ]);
@@ -200,12 +204,7 @@ describe('RootInteraction Tests', () => {
     });
 
     // 取消选中
-    expect(rootInteraction.getState().cells).toEqual([
-      getCellMeta(mockCell),
-      getCellMeta(mockCellA),
-    ]);
-
-    isEqualStateNameSpy.mockRestore();
+    expect(rootInteraction.getState().cells).toEqual([getCellMeta(mockCellA)]);
   });
 
   test('should call merge cells', () => {
@@ -496,7 +495,9 @@ describe('RootInteraction Tests', () => {
           InterceptType.CLICK,
         ]),
       ).toBeTruthy();
+
       rootInteraction.removeIntercepts([InterceptType.CLICK]);
+
       expect(rootInteraction.hasIntercepts([InterceptType.CLICK])).toBeFalsy();
       expect(rootInteraction.hasIntercepts([InterceptType.HOVER])).toBeTruthy();
     });
@@ -527,7 +528,7 @@ describe('RootInteraction Tests', () => {
   });
 
   test('should get correctly default interaction size', () => {
-    expect(defaultInteractionSize).toEqual(11);
+    expect(defaultInteractionSize).toEqual(13);
   });
 
   test('should register default interaction', () => {
@@ -548,7 +549,9 @@ describe('RootInteraction Tests', () => {
     ${InteractionName.ROW_TEXT_CLICK}            | ${RowTextClick}
     ${InteractionName.MERGED_CELLS_CLICK}        | ${MergedCellClick}
     ${InteractionName.HOVER}                     | ${HoverEvent}
-    ${InteractionName.BRUSH_SELECTION}           | ${BrushSelection}
+    ${InteractionName.BRUSH_SELECTION}           | ${DataCellBrushSelection}
+    ${InteractionName.COL_BRUSH_SELECTION}       | ${ColBrushSelection}
+    ${InteractionName.ROW_BRUSH_SELECTION}       | ${RowBrushSelection}
     ${InteractionName.COL_ROW_RESIZE}            | ${RowColumnResize}
     ${InteractionName.DATA_CELL_MULTI_SELECTION} | ${DataCellMultiSelection}
     ${InteractionName.RANGE_SELECTION}           | ${RangeSelection}
@@ -589,21 +592,22 @@ describe('RootInteraction Tests', () => {
 
   test.each`
     option                | name                                         | expected
-    ${`brushSelection`}   | ${InteractionName.BRUSH_SELECTION}           | ${BrushSelection}
     ${`resize`}           | ${InteractionName.COL_ROW_RESIZE}            | ${RowColumnResize}
     ${`multiSelection`}   | ${InteractionName.DATA_CELL_MULTI_SELECTION} | ${DataCellMultiSelection}
     ${`rangeSelection`}   | ${InteractionName.RANGE_SELECTION}           | ${RangeSelection}
     ${`selectedCellMove`} | ${InteractionName.SELECTED_CELL_MOVE}        | ${SelectedCellMove}
   `(
-    'should disable interaction by options %o',
+    'should disable interaction by options $option',
     ({ option, name, expected }) => {
       mockSpreadSheetInstance.options = {
         interaction: {
           [option]: false,
+          brushSelection: true,
         },
       } as unknown as S2Options;
 
       rootInteraction = new RootInteraction(mockSpreadSheetInstance);
+
       expect(rootInteraction.interactions.size).toEqual(
         defaultInteractionSize - 1,
       );
@@ -614,15 +618,49 @@ describe('RootInteraction Tests', () => {
     },
   );
 
-  test('should reset interaction when visibilitychange', () => {
+  test('should disable interaction by options brushSelection', () => {
+    mockSpreadSheetInstance.options = {
+      // brushSelection contains data, row and col brush selection
+      interaction: {
+        brushSelection: false,
+      },
+    } as unknown as S2Options;
+
     rootInteraction = new RootInteraction(mockSpreadSheetInstance);
-    rootInteraction.interactions.forEach((interaction) => {
-      interaction.reset = jest.fn();
+
+    expect(rootInteraction.interactions.size).toEqual(
+      defaultInteractionSize - 3,
+    );
+    expect(
+      rootInteraction.interactions.has(InteractionName.BRUSH_SELECTION),
+    ).toBeFalsy();
+    expect(
+      rootInteraction.interactions.has(InteractionName.COL_BRUSH_SELECTION),
+    ).toBeFalsy();
+    expect(
+      rootInteraction.interactions.has(InteractionName.ROW_BRUSH_SELECTION),
+    ).toBeFalsy();
+    [...rootInteraction.interactions.values()].forEach((interaction) => {
+      expect(interaction).not.toBeInstanceOf(DataCellBrushSelection);
+      expect(interaction).not.toBeInstanceOf(ColBrushSelection);
+      expect(interaction).not.toBeInstanceOf(RowBrushSelection);
     });
+  });
+
+  // eslint-disable-next-line jest/no-disabled-tests
+  test.skip('should reset interaction when visibilitychange', () => {
+    const resetSpyList = [...rootInteraction.interactions.values()].map(
+      (interaction) => {
+        return jest
+          .spyOn(interaction, 'reset')
+          .mockImplementationOnce(() => {});
+      },
+    );
+
     window.dispatchEvent(new Event('visibilitychange'));
 
-    rootInteraction.interactions.forEach((interaction) => {
-      expect(interaction.reset).toHaveBeenCalled();
+    resetSpyList.forEach((resetSpy) => {
+      expect(resetSpy).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -1,4 +1,4 @@
-import { TableSheet } from '@antv/s2';
+import { S2Options, TableSheet } from '@antv/s2';
 
 fetch(
   'https://gw.alipayobjects.com/os/bmw-prod/986d48ce-cfdf-475d-980c-553762770928.json',
@@ -35,17 +35,17 @@ fetch(
       data,
     };
 
-    const s2Options = {
+    const s2Options: S2Options = {
       width: 600,
       height: 480,
       interaction: {
-        hoverHighlight: false,
+        hoverHighlight: true,
       },
       conditions: {
         text: [
           {
             field: 'price',
-            mapping(fieldValue, data) {
+            mapping(value, record) {
               return {
                 fill: '#30BF78',
               };
@@ -53,7 +53,7 @@ fetch(
           },
           {
             field: new RegExp('co*'),
-            mapping(fieldValue, data) {
+            mapping(value, record) {
               return {
                 fill: '#F4664A',
               };

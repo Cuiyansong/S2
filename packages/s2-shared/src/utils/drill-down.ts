@@ -29,6 +29,7 @@ export type ActionIconCallbackParams = {
   disabledFields?: string[];
   event?: GEvent;
 };
+
 /** 下钻 icon 点击回调 */
 export type ActionIconCallback = (params: ActionIconCallbackParams) => void;
 
@@ -51,7 +52,7 @@ export const getDrillDownCache = (spreadsheet: SpreadSheet, meta: Node) => {
     'drillDownDataCache',
     [],
   ) as PartDrillDownDataCache[];
-  const cache = drillDownDataCache.find((dc) => dc.rowId === meta.id);
+  const cache = drillDownDataCache?.find((dc) => dc.rowId === meta.id);
   return {
     drillDownDataCache,
     drillDownCurrentCache: cache,
@@ -97,7 +98,7 @@ export const handleActionIconClick = (params: ActionIconParams) => {
  * @param meta 节点
  * @returns
  */
-const defaultPartDrillDownDisplayCondition = (meta: Node) => {
+export const defaultPartDrillDownDisplayCondition = (meta: Node) => {
   const s2 = meta.spreadsheet;
   const { fields } = s2.dataCfg;
   const iconLevel = fields.rows?.length - 1;
@@ -122,12 +123,12 @@ const defaultPartDrillDownDisplayCondition = (meta: Node) => {
  * @param callback 下钻点击事件
  * @returns 新 options
  */
-export const buildDrillDownOptions = (
-  options: S2Options,
+export const buildDrillDownOptions = <T extends Omit<S2Options, 'tooltip'>>(
+  options: T,
   partDrillDown: PartDrillDown,
   callback: ActionIconCallback,
-): S2Options => {
-  const nextHeaderIcons = options.headerActionIcons?.length
+): T => {
+  const nextHeaderIcons = options?.headerActionIcons?.length
     ? [...options.headerActionIcons]
     : [];
 

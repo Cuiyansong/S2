@@ -1,11 +1,13 @@
+import { toUpper } from 'lodash';
 import tinycolor from 'tinycolor2';
 import type { Palette, PaletteMeta } from '../common/interface/theme';
+import {
+  DEFAULT_FONT_COLOR,
+  REVERSE_FONT_COLOR,
+} from '../common/constant/condition';
 
-/**
- * 亮度范围 0~255
- * @see https://github.com/bgrins/TinyColor#getbrightness
- */
-const FONT_COLOR_BRIGHTNESS_THRESHOLD = 220;
+const WHITE_COLOR = '#FFFFFF';
+const BLACK_COLOR = '#000000';
 
 /** S2 标准色板 mix 规则 */
 const STANDARD_COLOR_MIX_PERCENT = [95, 85, 75, 30, 15, 0, 15, 30, 45, 60, 80];
@@ -15,6 +17,25 @@ const STANDARD_COLOR_MIX_PERCENT = [95, 85, 75, 30, 15, 0, 15, 30, 45, 60, 80];
  * @see Palette.basicColors
  */
 const BASIC_COLOR_COUNT = 15;
+
+/**
+ * 智能反色使用
+ * @param color
+ */
+export const shouldReverseFontColor = (color: string) => {
+  return tinycolor(color).getLuminance() <= 0.5;
+};
+
+/**
+ * @param backgroundColor
+ * @param fontColor
+ */
+export const isReadableText = (backgroundColor: string, fontColor: string) => {
+  return tinycolor.isReadable(backgroundColor, fontColor, {
+    level: 'AA',
+    size: 'small',
+  });
+};
 
 const FONT_COLOR_RELATIONS: Array<{
   fontColorIndex: number;
@@ -44,18 +65,23 @@ const FONT_COLOR_RELATIONS: Array<{
  * @param brandColor 主题色
  * @returns 标准色卡
  */
-export const generateStandardColors = (brandColor: string) => {
-  const standardColors = [];
+export const generateStandardColors = (brandColor: string): string[] => {
+  const standardColors: string[] = [];
 
   for (let index = 0; index < 11; index++) {
     const mixPercent = STANDARD_COLOR_MIX_PERCENT[index];
     standardColors.push(
       mixPercent === 0
-        ? brandColor.toUpperCase()
-        : tinycolor
-            .mix(brandColor, index < 5 ? '#FFFFFF' : '#000000', mixPercent)
-            .toHexString()
-            .toUpperCase(),
+        ? toUpper(brandColor)
+        : toUpper(
+            tinycolor
+              .mix(
+                brandColor,
+                index < 5 ? WHITE_COLOR : BLACK_COLOR,
+                mixPercent,
+              )
+              .toHexString(),
+          ),
     );
   }
 
@@ -64,13 +90,17 @@ export const generateStandardColors = (brandColor: string) => {
 
 /**
  * 根据 S2 内置色板及自选主题色生成新色板
- * @param palette 参考色板
+ * @param paletteMeta @PaletteMeta
  * @returns 新色板
  */
-export const generatePalette = (paletteMeta: PaletteMeta) => {
-  const basicColors = Array.from(Array(BASIC_COLOR_COUNT)).fill('#FFFFFF');
-  const { basicColorRelations } = paletteMeta;
-  const standardColors = generateStandardColors(paletteMeta.brandColor);
+export const generatePalette = (
+  paletteMeta: PaletteMeta = {} as PaletteMeta,
+): Palette => {
+  const basicColors = Array.from(Array(BASIC_COLOR_COUNT)).fill(
+    REVERSE_FONT_COLOR,
+  );
+  const { basicColorRelations = [], brandColor } = paletteMeta;
+  const standardColors = generateStandardColors(brandColor);
 
   // 使用标准色填充 basicColors
   basicColorRelations.forEach((relation) => {
@@ -80,11 +110,11 @@ export const generatePalette = (paletteMeta: PaletteMeta) => {
 
   // 根据背景明暗设置字体颜色
   FONT_COLOR_RELATIONS.forEach(({ fontColorIndex, bgColorIndex }) => {
-    basicColors[fontColorIndex] =
-      tinycolor(basicColors[bgColorIndex]).getBrightness() >
-      FONT_COLOR_BRIGHTNESS_THRESHOLD
-        ? '#000000'
-        : '#FFFFFF';
+    basicColors[fontColorIndex] = shouldReverseFontColor(
+      basicColors[bgColorIndex],
+    )
+      ? REVERSE_FONT_COLOR
+      : DEFAULT_FONT_COLOR;
   });
 
   return {

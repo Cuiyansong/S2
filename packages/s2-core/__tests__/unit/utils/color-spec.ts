@@ -1,5 +1,5 @@
-import { getPalette } from '@/utils';
-import { generatePalette } from '@/utils/color';
+import { getPalette, shouldReverseFontColor, isReadableText } from '@/utils';
+import { generatePalette, generateStandardColors } from '@/utils/color';
 
 const expectThemeColor = '#F1535F';
 const expectThemePalette = [
@@ -20,7 +20,7 @@ const expectThemePalette = [
   '#000000',
 ];
 
-describe('color test', () => {
+describe('Theme Color Tests', () => {
   test('should generate palette', () => {
     const colorfulPalette = getPalette('colorful');
     const palette = generatePalette({
@@ -45,5 +45,88 @@ describe('color test', () => {
       brandColor: '#000000',
     });
     expect(blackTextPalette.basicColors[0]).toEqual('#FFFFFF');
+  });
+
+  test('should not throw error when receive empty palette meta', () => {
+    function renderEmptyPalette() {
+      generatePalette();
+    }
+
+    expect(renderEmptyPalette).not.toThrowError();
+  });
+
+  test('should not throw error when receive empty brand color', () => {
+    function renderStandardColors() {
+      generateStandardColors(undefined);
+    }
+
+    expect(renderStandardColors).not.toThrowError();
+  });
+
+  test('should get standard color if brand color is empty', () => {
+    const colors = [
+      '#F2F2F2',
+      '#D9D9D9',
+      '#BFBFBF',
+      '#4D4D4D',
+      '#262626',
+      '',
+      '#000000',
+      '#000000',
+      '#000000',
+      '#000000',
+      '#000000',
+    ];
+    expect(generateStandardColors(undefined)).toEqual(colors);
+    expect(generateStandardColors('')).toEqual(colors);
+  });
+
+  // 主要测试一些主题色和亮度中间区域的颜色，保证修改后自带主题色不受影响
+  test('should use reverse font color when background colors are these', () => {
+    const backgroundColors = [
+      '#4174f0',
+      '#999999',
+      '#7F7F7F',
+      '#404040',
+      '#000000',
+    ];
+
+    backgroundColors.forEach((color) => {
+      expect(shouldReverseFontColor(color)).toBeTruthy();
+    });
+  });
+
+  test('should use default font color when background colors are these', () => {
+    const backgroundColors = [
+      '#c4e0fa',
+      '#f2f2f2',
+      '#ffffff',
+      '#C0C0C0',
+      '#e1e9fb',
+      '#f0f2f4',
+    ];
+    backgroundColors.forEach((color) => {
+      expect(shouldReverseFontColor(color)).toBeFalsy();
+    });
+  });
+
+  test('should use reverse font color when the background color dark and the contrast between the background color and the font color is too low', () => {
+    const backgroundColor = '#000000';
+
+    const fontColors = ['#000000', '#1D2129'];
+
+    fontColors.forEach((fontColor) => {
+      expect(isReadableText(backgroundColor, fontColor)).toBeFalsy();
+    });
+  });
+
+  test('should use default font color when the background color light and the contrast between the background color and the font color is too high', () => {
+    const backgroundColor = '#ffffff';
+
+    const fontColors = ['#000000', '#1D2129'];
+
+    fontColors.forEach((fontColor) => {
+      expect(isReadableText(backgroundColor, fontColor)).toBeTruthy();
+    });
   });
 });

@@ -1,10 +1,10 @@
-import { PivotSheet, SpreadSheet, TableSheet } from '@/sheet-type';
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+import type { Formatter, HeaderActionIcon } from '@/common';
 import { PivotDataSet, TableDataSet } from '@/data-set';
-import type { Formatter } from '@/common';
-
+import { PivotSheet, SpreadSheet, TableSheet } from '@/sheet-type';
 import { ColCell, CornerCell, RowCell, TableColCell } from '@/cell';
-import { Node } from '@/facet/layout/node';
 import { TableFacet } from '@/facet';
+import { Node } from '@/facet/layout/node';
 
 const MockPivotSheet = PivotSheet as unknown as jest.Mock<PivotSheet>;
 const MockPivotDataSet = PivotDataSet as unknown as jest.Mock<PivotDataSet>;
@@ -31,6 +31,22 @@ describe('header cell formatter test', () => {
     label: '杭州',
   });
 
+  const rowHeaderActionIcons: HeaderActionIcon[] = [
+    {
+      iconNames: ['Plus'],
+      belongsCell: 'rowCell',
+      defaultHide: false,
+    },
+  ];
+
+  const colHeaderActionIcons: HeaderActionIcon[] = [
+    {
+      iconNames: ['Plus'],
+      belongsCell: 'colCell',
+      defaultHide: false,
+    },
+  ];
+
   let s2: SpreadSheet;
   describe('pivot header cell formatter test', () => {
     beforeEach(() => {
@@ -53,6 +69,72 @@ describe('header cell formatter test', () => {
       expect(rowCell.getFieldValue()).toBe('杭州1');
     });
 
+    test('should not format pivot col and row total cell', () => {
+      const colNode = new Node({
+        id: `root[&]总计`,
+        key: '',
+        value: '总计',
+        parent: root,
+        label: '总计',
+        isTotalRoot: true,
+      });
+      const rowNode = new Node({
+        id: `root[&]杭州[&]小计`,
+        key: '',
+        value: '小计',
+        parent: root,
+        label: '小计',
+        isTotalRoot: true,
+      });
+
+      const formatter: Formatter = (value) => {
+        return `${value}1`;
+      };
+      jest.spyOn(s2.dataSet, 'getFieldFormatter').mockReturnValue(formatter);
+
+      const colCell = new ColCell(colNode, s2);
+      const rowCell = new RowCell(rowNode, s2);
+
+      expect(colCell.getFieldValue()).toBe('总计');
+      expect(rowCell.getFieldValue()).toBe('小计');
+    });
+
+    test('should not format pivot row grand total cell in tree mode', () => {
+      const rowGrandTotalNode = new Node({
+        id: `root[&]总计`,
+        key: '',
+        value: '总计',
+        parent: root,
+        label: '总计',
+        isTotals: true,
+        isGrandTotals: true,
+        isTotalRoot: true,
+      });
+
+      const rowSubTotalNode = new Node({
+        id: `root[&]杭州`,
+        key: '',
+        value: '杭州',
+        parent: root,
+        label: '杭州',
+        isTotals: true,
+        isSubTotals: true,
+        isGrandTotals: false,
+      });
+
+      const formatter: Formatter = (value) => {
+        return `${value}1`;
+      };
+      jest.spyOn(s2.dataSet, 'getFieldFormatter').mockReturnValue(formatter);
+      jest.spyOn(s2, 'isHierarchyTreeType').mockReturnValue(true);
+
+      const grandTotalCell = new ColCell(rowGrandTotalNode, s2);
+      const subTotalCell = new RowCell(rowSubTotalNode, s2);
+
+      expect(grandTotalCell.getFieldValue()).toBe('总计');
+      expect(subTotalCell.getFieldValue()).toBe('杭州1');
+    });
+
     test('pivot corner cell not formatter', () => {
       const formatter: Formatter = (value) => {
         return `${value}1`;
@@ -70,6 +152,48 @@ describe('header cell formatter test', () => {
 
       const cornerCell = new CornerCell(rowNode, s2, cornerOption);
       expect(cornerCell.getFieldValue()).toBe('杭州');
+    });
+
+    test('should render row header action icons', () => {
+      s2.options.headerActionIcons = rowHeaderActionIcons;
+
+      const rowCell = new RowCell(rowNode, s2);
+      // @ts-ignore
+      rowCell.actionIcons = [];
+      // @ts-ignore
+      rowCell.drawActionIcons();
+      // @ts-ignore
+      expect(rowCell.actionIcons).toHaveLength(1);
+    });
+
+    test('should render col header action icons', () => {
+      s2.options.headerActionIcons = colHeaderActionIcons;
+
+      const colCell = new ColCell(colNode, s2);
+      // @ts-ignore
+      colCell.actionIcons = [];
+      // @ts-ignore
+      colCell.drawActionIcons();
+      // @ts-ignore
+      expect(colCell.actionIcons).toHaveLength(1);
+    });
+
+    test('should render col header sort icons', () => {
+      s2.options.showDefaultHeaderActionIcon = true;
+      jest.spyOn(s2, 'isValueInCols').mockImplementationOnce(() => true);
+      const showSortIconSpy = jest
+        .spyOn(ColCell.prototype, 'showSortIcon')
+        .mockImplementation(() => true);
+
+      const colCell = new ColCell(colNode, s2);
+      // @ts-ignore
+      colCell.actionIcons = [];
+      // @ts-ignore
+      colCell.drawActionIcons();
+      // @ts-ignore
+      expect(colCell.actionIcons).toHaveLength(1);
+
+      showSortIconSpy.mockRestore();
     });
   });
 

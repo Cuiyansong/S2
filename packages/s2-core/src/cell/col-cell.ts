@@ -9,11 +9,7 @@ import {
   S2Event,
 } from '../common/constant';
 import { CellBorderPosition } from '../common/interface';
-import type {
-  DefaultCellTheme,
-  IconTheme,
-  TextTheme,
-} from '../common/interface';
+import type { DefaultCellTheme, IconTheme } from '../common/interface';
 import type { AreaRange } from '../common/interface/scroll';
 import type { ColHeaderConfig } from '../facet/header/col';
 import {
@@ -49,8 +45,12 @@ export class ColCell extends HeaderCell {
     this.drawBackgroundShape();
     // interactive background shape
     this.drawInteractiveBgShape();
+    // interactive cell border shape
+    this.drawInteractiveBorderShape();
     // draw text
     this.drawTextShape();
+    // 绘制字段标记 -- icon
+    this.drawConditionIconShapes();
     // draw action icons
     this.drawActionIcons();
     // draw borders
@@ -59,15 +59,6 @@ export class ColCell extends HeaderCell {
     this.drawResizeArea();
     this.addExpandColumnIconShapes();
     this.update();
-  }
-
-  protected drawBackgroundShape() {
-    const { backgroundColor, backgroundColorOpacity } = this.getStyle().cell;
-    this.backgroundShape = renderRect(this, {
-      ...this.getCellArea(),
-      fill: backgroundColor,
-      fillOpacity: backgroundColorOpacity,
-    });
   }
 
   // 交互使用的背景色
@@ -86,19 +77,19 @@ export class ColCell extends HeaderCell {
     );
   }
 
-  protected getTextStyle(): TextTheme {
-    const { isLeaf, isTotals } = this.meta;
-    const { text, bolderText, measureText } = this.getStyle();
+  /**
+   * 绘制hover悬停，刷选的外框
+   */
+  protected drawInteractiveBorderShape() {
+    // 往内缩一个像素，避免和外边框重叠
+    const margin = 2;
 
-    if (this.isMeasureField()) {
-      return measureText || text;
-    }
-
-    if (isTotals || !isLeaf) {
-      return bolderText;
-    }
-
-    return text;
+    this.stateShapes.set(
+      'interactiveBorderShape',
+      renderRect(this, this.getInteractiveBorderShapeStyle(margin), {
+        visible: false,
+      }),
+    );
   }
 
   protected getMaxTextWidth(): number {
@@ -117,9 +108,9 @@ export class ColCell extends HeaderCell {
 
     const textStyle = this.getTextStyle();
     const position = this.textPosition;
-    const textX = position.x;
+    const textX = position?.x;
 
-    const y = position.y - iconStyle.size / 2;
+    const y = position?.y - iconStyle.size / 2;
 
     if (textStyle.textAlign === 'left') {
       /**
@@ -162,6 +153,15 @@ export class ColCell extends HeaderCell {
       x: textX + this.actualTextWidth / 2 + iconMarginLeft,
       y,
     };
+  }
+
+  protected isBolderText() {
+    // 非叶子节点、小计总计，均为粗体
+    const { isLeaf, isTotals } = this.meta;
+    if (isTotals || !isLeaf) {
+      return true;
+    }
+    return false;
   }
 
   protected getTextPosition(): Point {
@@ -460,6 +460,7 @@ export class ColCell extends HeaderCell {
       horizontalBorderColor,
       horizontalBorderWidth,
       horizontalBorderColorOpacity,
+      borderDash,
     } = this.theme.splitLine;
     const lineX = this.isLastColumn() ? x + width - horizontalBorderWidth : x;
 
@@ -475,6 +476,7 @@ export class ColCell extends HeaderCell {
         stroke: horizontalBorderColor,
         lineWidth: horizontalBorderWidth,
         strokeOpacity: horizontalBorderColorOpacity,
+        lineDash: borderDash,
       },
     );
   }
@@ -484,11 +486,21 @@ export class ColCell extends HeaderCell {
       return;
     }
     this.addExpandColumnSplitLine();
-    this.addExpandColumnIcon();
+    this.addExpandColumnIcons();
   }
 
-  protected addExpandColumnIcon() {
-    const iconConfig = this.getExpandColumnIconConfig();
+  protected addExpandColumnIcons() {
+    const isLastColumn = this.isLastColumn();
+    this.addExpandColumnIcon(isLastColumn);
+
+    // 如果当前节点的兄弟节点 (前/后) 都被隐藏了, 隐藏后当前节点变为最后一个节点, 需要渲染两个展开按钮, 一个展开[前], 一个展开[后]
+    if (this.isAllDisplaySiblingNodeHidden() && isLastColumn) {
+      this.addExpandColumnIcon(false);
+    }
+  }
+
+  private addExpandColumnIcon(isLastColumn: boolean) {
+    const iconConfig = this.getExpandColumnIconConfig(isLastColumn);
     const icon = renderIcon(this, {
       ...iconConfig,
       name: 'ExpandColIcon',
@@ -500,12 +512,12 @@ export class ColCell extends HeaderCell {
   }
 
   // 在隐藏的下一个兄弟节点的起始坐标显示隐藏提示线和展开按钮, 如果是尾元素, 则显示在前一个兄弟节点的结束坐标
-  protected getExpandColumnIconConfig() {
+  protected getExpandColumnIconConfig(isLastColumn: boolean) {
     const { size } = this.getExpandIconTheme();
     const { x, y, width, height } = this.getCellArea();
 
     const baseIconX = x - size;
-    const iconX = this.isLastColumn() ? baseIconX + width : baseIconX;
+    const iconX = isLastColumn ? baseIconX + width : baseIconX;
     const iconY = y + height / 2 - size / 2;
 
     return {
@@ -518,5 +530,22 @@ export class ColCell extends HeaderCell {
 
   protected isLastColumn() {
     return isLastColumnAfterHidden(this.spreadsheet, this.meta.id);
+  }
+
+  protected isAllDisplaySiblingNodeHidden() {
+    const { id } = this.meta;
+    const lastHiddenColumnDetail = this.spreadsheet.store.get(
+      'hiddenColumnsDetail',
+      [],
+    );
+
+    const isPrevSiblingNodeHidden = lastHiddenColumnDetail.find(
+      ({ displaySiblingNode }) => displaySiblingNode?.next?.id === id,
+    );
+    const isNextSiblingNodeHidden = lastHiddenColumnDetail.find(
+      ({ displaySiblingNode }) => displaySiblingNode?.prev?.id === id,
+    );
+
+    return isNextSiblingNodeHidden && isPrevSiblingNodeHidden;
   }
 }

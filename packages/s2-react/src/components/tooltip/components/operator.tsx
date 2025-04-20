@@ -1,19 +1,27 @@
 import { Menu, Dropdown, type MenuProps } from 'antd';
 import { isEmpty, map } from 'lodash';
 import React from 'react';
-import { TOOLTIP_PREFIX_CLS, type TooltipOperatorMenu } from '@antv/s2';
+import { TOOLTIP_PREFIX_CLS } from '@antv/s2';
 import type { TooltipOperatorProps as BaseTooltipOperatorProps } from '@antv/s2-shared';
+import type { TooltipOperatorMenu } from '../interface';
 import { TooltipIcon } from './icon';
 
 import '@antv/s2-shared/src/styles/tooltip/operator.less';
 
-interface TooltipOperatorProps extends BaseTooltipOperatorProps {
+interface TooltipOperatorProps
+  extends BaseTooltipOperatorProps<React.ReactNode, React.ReactNode> {
   onClick?: MenuProps['onClick'];
 }
 
 export const TooltipOperator: React.FC<TooltipOperatorProps> = React.memo(
   (props) => {
-    const { menus, onlyMenu, onClick: onMenuClick, cell } = props;
+    const {
+      menus,
+      onlyMenu,
+      onClick: onMenuClick,
+      cell,
+      defaultSelectedKeys,
+    } = props;
 
     const renderTitle = (menu: TooltipOperatorMenu) => {
       return (
@@ -60,6 +68,7 @@ export const TooltipOperator: React.FC<TooltipOperatorProps> = React.memo(
           <Menu
             className={`${TOOLTIP_PREFIX_CLS}-operator-menus`}
             onClick={onMenuClick}
+            defaultSelectedKeys={defaultSelectedKeys}
           >
             {map(menus, (subMenu: TooltipOperatorMenu) => renderMenu(subMenu))}
           </Menu>
@@ -73,6 +82,7 @@ export const TooltipOperator: React.FC<TooltipOperatorProps> = React.memo(
             className={`${TOOLTIP_PREFIX_CLS}-operator-menus`}
             onClick={onMenuClick}
             key={key}
+            defaultSelectedKeys={defaultSelectedKeys}
           >
             {map(children, (subMenu: TooltipOperatorMenu) =>
               renderMenu(subMenu),

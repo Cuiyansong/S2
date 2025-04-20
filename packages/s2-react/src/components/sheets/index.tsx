@@ -1,5 +1,11 @@
 import type { SpreadSheet } from '@antv/s2';
+import { getLang } from '@antv/s2';
+import { ConfigProvider } from 'antd';
+import enUS from 'antd/es/locale/en_US';
+import ruRU from 'antd/es/locale/ru_RU';
+import zhCN from 'antd/es/locale/zh_CN';
 import React from 'react';
+import { EditableSheet } from './editable-sheet';
 import { GridAnalysisSheet } from './grid-analysis-sheet';
 import type { SheetComponentsProps } from './interface';
 import { PivotSheet } from './pivot-sheet';
@@ -13,11 +19,11 @@ const Sheet = React.forwardRef(
     const sheetProps = React.useMemo<SheetComponentsProps>(() => {
       return {
         ...props,
-        getSpreadSheet: (instance) => {
+        onMounted: (instance) => {
           if (ref) {
             ref.current = instance;
           }
-          props.getSpreadSheet?.(instance);
+          props.onMounted?.(instance);
         },
       };
     }, [props, ref]);
@@ -30,12 +36,22 @@ const Sheet = React.forwardRef(
           return <GridAnalysisSheet {...sheetProps} />;
         case 'strategy':
           return <StrategySheet {...sheetProps} />;
+        case 'editable':
+          return <EditableSheet {...sheetProps} />;
         default:
           return <PivotSheet {...sheetProps} />;
       }
     }, [sheetType, sheetProps]);
 
-    return <React.StrictMode>{CurrentSheet}</React.StrictMode>;
+    const lang = getLang();
+    // eslint-disable-next-line no-nested-ternary
+    const locale = lang === 'zh_CN' ? zhCN : lang === 'ru_RU' ? ruRU : enUS;
+
+    return (
+      <React.StrictMode>
+        <ConfigProvider locale={locale}>{CurrentSheet}</ConfigProvider>
+      </React.StrictMode>
+    );
   },
 );
 

@@ -1,5 +1,5 @@
 import type { Event } from '@antv/g-canvas';
-import { inRange, isNil, range } from 'lodash';
+import { inRange, isEmpty, isNil, range } from 'lodash';
 import { DataCell } from '../cell';
 import {
   CellTypes,
@@ -11,7 +11,7 @@ import {
 import type { S2CellType, ViewMeta } from '../common/interface';
 import type { Node } from '../facet/layout/node';
 import { getCellMeta, getRangeIndex } from '../utils/interaction/select-event';
-import { getActiveCellsTooltipData } from '../utils/tooltip';
+import { getCellsTooltipData } from '../utils/tooltip';
 import { BaseEvent, type BaseEventImplement } from './base-interaction';
 
 export class RangeSelection extends BaseEvent implements BaseEventImplement {
@@ -22,6 +22,7 @@ export class RangeSelection extends BaseEvent implements BaseEventImplement {
     this.bindDataCellClick();
     this.bindColCellClick();
     this.bindKeyboardUp();
+    this.bindMouseMove();
   }
 
   public reset() {
@@ -44,6 +45,15 @@ export class RangeSelection extends BaseEvent implements BaseEventImplement {
   private bindKeyboardUp() {
     this.spreadsheet.on(S2Event.GLOBAL_KEYBOARD_UP, (event: KeyboardEvent) => {
       if (event.key === InteractionKeyboardKey.SHIFT) {
+        this.reset();
+      }
+    });
+  }
+
+  private bindMouseMove() {
+    // 当快捷键被系统拦截后，按需补充调用一次 reset
+    this.spreadsheet.on(S2Event.GLOBAL_MOUSE_MOVE, (event) => {
+      if (this.isRangeSelection && !event.shiftKey) {
         this.reset();
       }
     });
@@ -111,7 +121,7 @@ export class RangeSelection extends BaseEvent implements BaseEventImplement {
       });
       this.spreadsheet.showTooltipWithInfo(
         event,
-        getActiveCellsTooltipData(this.spreadsheet),
+        getCellsTooltipData(this.spreadsheet),
       );
       this.spreadsheet.emit(
         S2Event.GLOBAL_SELECTED,
@@ -177,6 +187,9 @@ export class RangeSelection extends BaseEvent implements BaseEventImplement {
           stateName: InteractionStateName.SELECTED,
         });
       } else {
+        if (isEmpty(interaction.getCells())) {
+          interaction.removeIntercepts([InterceptType.HOVER]);
+        }
         this.spreadsheet.store.set('lastClickedCell', cell);
       }
 

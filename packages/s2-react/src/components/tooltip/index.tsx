@@ -2,7 +2,7 @@ import { isEmpty } from 'lodash';
 import React from 'react';
 import { getTooltipDefaultOptions } from '@antv/s2';
 import type {
-  ListItem,
+  TooltipDetailListItem,
   TooltipOperatorOptions,
   TooltipSummaryOptions,
   TooltipNameTipsOptions,
@@ -25,17 +25,12 @@ export const TooltipComponent: React.FC<TooltipRenderProps> = (props) => {
   const { data, options, content, cell } = props;
 
   const renderOperation = (
-    operator: TooltipOperatorOptions,
+    operator: TooltipOperatorOptions<React.ReactNode, React.ReactNode>,
     onlyMenu?: boolean,
   ) => {
     return (
       operator && (
-        <TooltipOperator
-          onClick={operator.onClick}
-          menus={operator.menus}
-          onlyMenu={onlyMenu}
-          cell={cell}
-        />
+        <TooltipOperator {...operator} onlyMenu={onlyMenu} cell={cell} />
       )
     );
   };
@@ -59,7 +54,7 @@ export const TooltipComponent: React.FC<TooltipRenderProps> = (props) => {
     );
   };
 
-  const renderDetail = (details: ListItem[]) => {
+  const renderDetail = (details: TooltipDetailListItem[]) => {
     return !isEmpty(details) && <TooltipDetail list={details} />;
   };
 
@@ -78,7 +73,11 @@ export const TooltipComponent: React.FC<TooltipRenderProps> = (props) => {
   };
 
   const renderContent = () => {
-    const { operator, onlyMenu } = getTooltipDefaultOptions(options);
+    const { operator, onlyMenu } = getTooltipDefaultOptions<
+      React.ReactNode,
+      React.ReactNode
+    >(options);
+
     const {
       summaries,
       headInfo,

@@ -1,8 +1,8 @@
-import { PivotSheet, DataCell } from '@antv/s2';
+import { DataCell, PivotSheet } from '@antv/s2';
 
 /**
  * 自定义 DataCell，给数值单元格添加背景图
- * 查看更多方法 https://github.com/antvis/S2/blob/master/packages/s2-core/src/cell/corner-cell.ts
+ * 查看更多方法 https://github.com/antvis/S2/blob/master/packages/s2-core/src/cell/data-cell.ts
  */
 class CustomDataCell extends DataCell {
   // 重写绘制背景方法, 添加一个背景图片
@@ -21,7 +21,7 @@ fetch(
 )
   .then((res) => res.json())
   .then((res) => {
-    const container = document.getElementById('container');
+    const container = document.getElementById('container')!;
     const s2DataConfig = {
       fields: {
         rows: ['province', 'city'],
@@ -31,6 +31,7 @@ fetch(
       meta: res.meta,
       data: res.data,
     };
+
     const s2Options = {
       width: 600,
       height: 480,
@@ -43,6 +44,5 @@ fetch(
     };
     const s2 = new PivotSheet(container, s2DataConfig, s2Options);
 
-    // 使用
     s2.render();
   });

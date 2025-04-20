@@ -5,7 +5,10 @@ export enum InteractionName {
   ROW_COLUMN_CLICK = 'rowColumnClick',
   ROW_TEXT_CLICK = 'rowTextClick',
   HOVER = 'hover',
+  // options brushSelection 控制 BRUSH_SELECTION, ROW_BRUSH_SELECTION,COL_BRUSH_SELECTION
   BRUSH_SELECTION = 'brushSelection',
+  ROW_BRUSH_SELECTION = 'rowBrushSelection',
+  COL_BRUSH_SELECTION = 'colBrushSelection',
   COL_ROW_RESIZE = 'rowColResize',
   DATA_CELL_MULTI_SELECTION = 'dataCellMultiSelection',
   RANGE_SELECTION = 'rangeSelection',
@@ -15,6 +18,7 @@ export enum InteractionName {
 export enum InteractionStateName {
   ALL_SELECTED = 'allSelected',
   SELECTED = 'selected',
+  BRUSH_SELECTED = 'brushSelected',
   UNSELECTED = 'unselected',
   HOVER = 'hover',
   HOVER_FOCUS = 'hoverFocus',
@@ -48,6 +52,7 @@ export const SHAPE_STYLE_MAP = {
 // 设置属性的时候实际对应改变的shape映射
 export const SHAPE_ATTRS_MAP = {
   textShape: ['textOpacity'],
+  textShapes: ['textOpacity'],
   linkFieldShape: ['opacity'],
   interactiveBgShape: ['backgroundColor', 'backgroundOpacity'],
   interactiveBorderShape: ['borderColor', 'borderOpacity', 'borderWidth'],
@@ -82,6 +87,8 @@ export enum InterceptType {
   HOVER = 'hover',
   CLICK = 'click',
   BRUSH_SELECTION = 'brushSelection',
+  ROW_BRUSH_SELECTION = 'rowBrushSelection',
+  COL_BRUSH_SELECTION = 'colBrushSelection',
   MULTI_SELECTION = 'multiSelection',
   RESIZE = 'resize',
 }
@@ -103,6 +110,11 @@ export enum ScrollbarPositionType {
 }
 
 export enum ScrollDirection {
-  LEADING = 'leading',
-  TRAILING = 'trailing',
+  SCROLL_UP = 'scrollUp',
+  SCROLL_DOWN = 'scrollDown',
+}
+
+export enum ScrollDirectionRowIndexDiff {
+  SCROLL_UP = -1,
+  SCROLL_DOWN = 1,
 }

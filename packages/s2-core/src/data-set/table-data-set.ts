@@ -1,8 +1,10 @@
-import { each, orderBy, filter, includes, isFunction } from 'lodash';
-import { isAscSort, isDescSort } from '..';
+import { each, filter, hasIn, isFunction, isObject, orderBy } from 'lodash';
+import { getEmptyPlaceholder, isAscSort, isDescSort } from '..';
+import type { CellMeta } from '../common';
 import type { S2DataConfig } from '../common/interface';
-import type { CellDataParams, DataType } from './interface';
+import type { RowData } from '../common/interface/basic';
 import { BaseDataSet } from './base-data-set';
+import type { CellDataParams, DataType, Query } from './interface';
 
 export class TableDataSet extends BaseDataSet {
   // data that goes into canvas (aka sorted & filtered)
@@ -22,12 +24,12 @@ export class TableDataSet extends BaseDataSet {
    * 返回顶部冻结行
    * @returns
    */
-  protected getStartRows() {
+  protected getStartFrozenRows(displayData: DataType[]): DataType[] {
     const { frozenRowCount } = this.spreadsheet.options || {};
     if (!frozenRowCount) {
       return [];
     }
-    const { displayData } = this;
+
     return displayData.slice(0, frozenRowCount);
   }
 
@@ -35,45 +37,41 @@ export class TableDataSet extends BaseDataSet {
    * 返回底部冻结行
    * @returns
    */
-  protected getEndRows() {
+  protected getEndFrozenRows(displayData: DataType[]): DataType[] {
     const { frozenTrailingRowCount } = this.spreadsheet.options || {};
-    // 没有冻结行时返回空数组
     if (!frozenTrailingRowCount) {
       return [];
     }
-    const { displayData } = this;
 
     return displayData.slice(-frozenTrailingRowCount);
   }
 
-  /**
-   * 返回可移动的非冻结行
-   * @returns
-   */
-  protected getMovableRows(): DataType[] {
-    const { displayData } = this;
-    const { frozenTrailingRowCount, frozenRowCount } =
-      this.spreadsheet.options || {};
-    return displayData.slice(
-      frozenRowCount || 0,
-      -frozenTrailingRowCount || undefined,
+  protected getDisplayData(displayData: DataType[]): DataType[] {
+    const startFrozenRows = this.getStartFrozenRows(displayData);
+    const endFrozenRows = this.getEndFrozenRows(displayData);
+
+    const data = displayData.slice(
+      startFrozenRows.length || 0,
+      -endFrozenRows.length || undefined,
     );
+
+    return [...startFrozenRows, ...data, ...endFrozenRows];
   }
 
   handleDimensionValueFilter = () => {
     each(this.filterParams, ({ filterKey, filteredValues, customFilter }) => {
+      const filteredValuesSet = new Set(filteredValues);
       const defaultFilterFunc = (row: DataType) =>
-        row[filterKey] && !includes(filteredValues, row[filterKey]);
-      this.displayData = [
-        ...this.getStartRows(),
-        ...filter(this.getMovableRows(), (row) => {
-          if (customFilter) {
-            return customFilter(row) && defaultFilterFunc(row);
-          }
-          return defaultFilterFunc(row);
-        }),
-        ...this.getEndRows(),
-      ];
+        !filteredValuesSet.has(row[filterKey]);
+
+      const filteredData = filter(this.displayData, (row) => {
+        if (customFilter) {
+          return customFilter(row) && defaultFilterFunc(row);
+        }
+        return defaultFilterFunc(row);
+      });
+
+      this.displayData = this.getDisplayData(filteredData);
     });
   };
 
@@ -86,7 +84,7 @@ export class TableDataSet extends BaseDataSet {
         return;
       }
 
-      let data = this.getMovableRows();
+      let data = this.displayData;
 
       const restData = [];
       if (query) {
@@ -126,10 +124,23 @@ export class TableDataSet extends BaseDataSet {
           return idxB - idxA;
         });
       } else if (isAscSort(sortMethod) || isDescSort(sortMethod)) {
-        const func = isFunction(sortBy) ? sortBy : null;
+        const placeholder = getEmptyPlaceholder(
+          this.spreadsheet,
+          this.spreadsheet.options?.placeholder,
+        );
+        const customSortBy = isFunction(sortBy) ? sortBy : null;
+        const customSort = (record: DataType) => {
+          // 空值占位符按最小值处理 https://github.com/antvis/S2/issues/2707
+          if (record[sortFieldId] === placeholder) {
+            return Number.MIN_VALUE;
+          }
+
+          return record[sortFieldId];
+        };
+
         sortedData = orderBy(
           data,
-          [func || sortFieldId],
+          [customSortBy || customSort],
           [sortMethod.toLocaleLowerCase() as boolean | 'asc' | 'desc'],
         );
       }
@@ -139,15 +150,11 @@ export class TableDataSet extends BaseDataSet {
       }
 
       // For frozen options
-      this.displayData = [
-        ...this.getStartRows(),
-        ...sortedData,
-        ...this.getEndRows(),
-      ];
+      this.displayData = this.getDisplayData(sortedData);
     });
   };
 
-  public getDimensionValues(field: string, query?: DataType): string[] {
+  public getDimensionValues(): string[] {
     return [];
   }
 
@@ -158,13 +165,33 @@ export class TableDataSet extends BaseDataSet {
 
     const rowData = this.displayData[query.rowIndex];
 
-    if (!('col' in query)) {
+    if (!hasIn(query, 'field') || !isObject(rowData)) {
       return rowData;
     }
-    return rowData[query.col];
+    return rowData[query.field];
   }
 
-  public getMultiData(query: DataType, isTotals?: boolean): DataType[] {
-    return this.displayData;
+  public getMultiData(query: Query): DataType[] {
+    if (!query) {
+      return this.displayData;
+    }
+
+    const rowData = this.displayData[query.rowIndex]
+      ? [this.displayData[query.rowIndex]]
+      : this.displayData;
+
+    if (!hasIn(query, 'field')) {
+      return rowData;
+    }
+
+    return rowData.map((item) => item[query.field]);
+  }
+
+  public getRowData(cell: CellMeta): RowData {
+    return this.getCellData({
+      query: {
+        rowIndex: cell.rowIndex,
+      },
+    });
   }
 }

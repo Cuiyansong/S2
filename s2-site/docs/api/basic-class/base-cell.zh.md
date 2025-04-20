@@ -5,49 +5,37 @@ order: 4
 
 功能描述：单元格基类。[详情](https://github.com/antvis/S2/blob/master/packages/s2-core/src/cell/base-cell.ts)
 
+```ts
+cell.getActualText()
+```
+
 | 参数 | 说明 | 类型 |
 | --- | --- | --- |
-| getMeta | 获取单元格元数据 | () => [ViewMeta](#viewmeta) |
-| setMeta | 设置单元格元数据 | (vieMeta: [ViewMeta](#viewmeta)) => void |
-| getIconStyle | 获取单元格图标样式 | () => [IconTheme](/zh/docs/api/general/S2Theme#icontheme) |
-| getStyle | 获取单元格样式 | () => [DefaultCellTheme](/zh/docs/api/general/S2Theme#defaultcelltheme) |
-| getTextAndIconPosition | 获取单元格文本和图标的位置 | (iconCount: `number`) => [TextAndIconPosition](#textandiconposition) |
+| getMeta | 获取单元格元数据 | () => [`ViewMeta`](#viewmeta) |
+| setMeta | 设置单元格元数据 | (vieMeta: [`Partial<ViewMeta>`](#viewmeta)) => void |
+| getIconStyle | 获取单元格图标样式 | () => [`IconTheme`](/docs/api/general/S2Theme#icontheme) |
+| getStyle | 获取单元格样式 | () => [`DefaultCellTheme`](/docs/api/general/S2Theme#defaultcelltheme) |
+| getTextAndIconPosition | 获取单元格文本和图标的位置 | (iconCount: `number`) => [`TextAndIconPosition`](#textandiconposition) |
 | getActualText | 获取绘制的文本 | `() => string` |
-| cellType | 单元格类型 | [CellTypes](#celltypes) |
+| cellType | 单元格类型 | [`CellTypes`](#celltypes) |
 | initCell | 初始化单元格 | `() => void` |
 | update | 更新单元格 | `() => void` |
 | getTextStyle | 获取文本样式 | `() => void` |
 | getFormattedFieldValue | 获取格式化后的字段值 | `() => { formattedValue: string, value: string }` |
 | getMaxTextWidth | 获取文本最大宽度 | `() => number` |
-| getTextPosition | 获取文本坐标 | [Point](#point) |
+| getTextPosition | 获取文本坐标 | [`Point`](#point) |
 | getContentArea | 获取内容区域 | `() => { x: number, y: number, width: number, height: number }` |
 | updateByState | 根据状态更新单元格样式 | `(stateName: InteractionStateName, cell: S2CellType) => void` |
 | hideInteractionShape | 隐藏单元格的交互图层 | `() => void` |
 | clearUnselectedState | 清空未选中状态 | `() => void` |
+| getTextShape | 获取文字图层 | `() => IShape` |
+| getTextShapes | 获取所有文字图层 | `() => IShape[]` |
+| addTextShape | 添加文字图层 | `(shape: IShape) => void` |
+| getConditionIconShape | 获取 icon 图层 | `() => GuiIcon` |
+| getConditionIconShapes | 获取所有 icon 图层 | `() => GuiIcon[]` |
+| addConditionIconShape | 添加 icon 图层 | `(shape: GuiIcon) => void` |
 
-### ViewMeta
-
-```ts
-interface ViewMeta {
-  spreadsheet: SpreadSheet;
-  id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  data: Record<string, any>;
-  rowIndex: number;
-  colIndex: number;
-  valueField: string;
-  fieldValue: DataItem;
-  isTotals?: boolean;
-  rowQuery?: Record<string, any>;
-  colQuery?: Record<string, any>;
-  rowId?: string;
-  colId?: string;
-  [key: string]: any;
-}
-```
+<embed src="@/docs/common/view-meta.zh.md"></embed>
 
 ### Point
 
@@ -82,7 +70,7 @@ export enum CellTypes {
 
 ### S2CellType
 
-```ts
+```ts | pure
 import type { SimpleBBox } from '@antv/g-canvas';
 
 export type S2CellType<T extends SimpleBBox = ViewMeta> =

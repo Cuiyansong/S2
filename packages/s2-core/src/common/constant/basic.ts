@@ -1,16 +1,9 @@
-// 值字段的 id 是固定的！
-export const VALUE_FIELD = '$$value$$';
-export const EXTRA_FIELD = '$$extra$$';
-export const EXTRA_COLUMN_FIELD = '$$extra_column$$';
-export const TOTAL_VALUE = '$$total$$';
-export const SERIES_NUMBER_FIELD = '$$series_number$$';
-
 export const BACK_GROUND_GROUP_CONTAINER_Z_INDEX = 0;
 
 // foregroundGroup 上的 children 层叠顺序
 export const FRONT_GROUND_GROUP_CONTAINER_Z_INDEX = 3; // 约定这个 z-index 为 0 的 container 作为基准
-export const FRONT_GROUND_GROUP_COL_SCROLL_Z_INDEX = 3;
-export const FRONT_GROUND_GROUP_COL_FROZEN_Z_INDEX = 4;
+export const FRONT_GROUND_GROUP_SCROLL_Z_INDEX = 3;
+export const FRONT_GROUND_GROUP_FROZEN_Z_INDEX = 4;
 export const FRONT_GROUND_GROUP_RESIZE_AREA_Z_INDEX = 5;
 export const FRONT_GROUND_GROUP_BRUSH_SELECTION_Z_INDEX = 5;
 
@@ -45,6 +38,8 @@ export const KEY_GROUP_COL_SCROLL = 'colScrollGroup';
 export const KEY_GROUP_COL_FROZEN = 'colFrozenGroup';
 export const KEY_GROUP_COL_FROZEN_TRAILING = 'colFrozenTrailingGroup';
 export const KEY_GROUP_GRID_GROUP = 'gridGroup';
+export const KEY_GROUP_ROW_SCROLL = 'rowScrollGroup';
+export const KEY_GROUP_ROW_HEADER_FROZEN = 'rowHeaderFrozenGroup';
 
 // key of series number node in corner header
 export const KEY_SERIES_NUMBER_NODE = 'series-number-node';
@@ -57,6 +52,8 @@ export const KEY_COL_REAL_WIDTH_INFO = 'col-real-width-info';
 
 export const ROOT_ID = 'root';
 export const ID_SEPARATOR = '[&]';
+// 数值单元格 ID 分割符 TODO: 2.0 版本使用唯一标识
+export const DATA_CELL_ID_SEPARATOR = '-';
 export const EMPTY_PLACEHOLDER = '-';
 
 export const PADDING_TOP = 0;
@@ -89,3 +86,6 @@ export enum MiniChartTypes {
 
 // 线条 linecap 样式
 export const SQUARE_LINE_CAP = 'square';
+
+// 省略号
+export const ELLIPSIS_SYMBOL = '...';

@@ -1,8 +1,6 @@
 import { TableSheet } from '@antv/s2';
 
-fetch(
-  '../data/basic-table-mode.json',
-)
+fetch('https://assets.antv.antgroup.com/s2/basic-table-mode.json')
   .then((res) => res.json())
   .then((data) => {
     const container = document.getElementById('container');
@@ -40,6 +38,7 @@ fetch(
       height: 480,
       showSeriesNumber: true,
     };
+
     const s2 = new TableSheet(container, s2DataConfig, s2Options);
 
     s2.render();

@@ -1,12 +1,22 @@
 import type { IGroup, SimpleBBox } from '@antv/g-canvas';
-import { findIndex, isNil } from 'lodash';
+import { findIndex, isEmpty, isNil } from 'lodash';
 
-import { FrozenCellType } from '../common/constant/frozen';
+import { EMPTY_FIELD_VALUE, EMPTY_PLACEHOLDER } from '../common';
 import type { FrozenCellIndex, FrozenOpts } from '../common/constant/frozen';
-import type { Pagination, ScrollSpeedRatio } from '../common/interface';
-import type { Indexes } from '../utils/indexes';
+import { FrozenCellType } from '../common/constant/frozen';
 import { DEFAULT_PAGE_INDEX } from '../common/constant/pagination';
+import type {
+  ColumnNode,
+  Columns,
+  Fields,
+  Pagination,
+  S2Options,
+  S2TableSheetOptions,
+  ScrollSpeedRatio,
+} from '../common/interface';
+import type { Indexes } from '../utils/indexes';
 import type { ViewCellHeights } from './layout/interface';
+import type { Node } from './layout/node';
 
 export const isFrozenCol = (colIndex: number, frozenCount: number) => {
   return frozenCount > 0 && colIndex < frozenCount;
@@ -368,3 +378,202 @@ export const getCellRange = (
     end,
   };
 };
+
+/**
+ * 给定一个一层的 node 数组以及左右固定列的数量，计算出实际固定列（叶子节点）的数量
+ * @param nodes
+ * @param frozenColCount
+ * @param frozenTrailingColCount
+ * @returns {colCount, trailingColCount}
+ */
+export const getFrozenLeafNodesCount = (
+  nodes: Node[],
+  frozenColCount: number,
+  frozenTrailingColCount: number,
+): { colCount: number; trailingColCount: number } => {
+  let colCount = frozenColCount;
+  let trailingColCount = frozenTrailingColCount;
+  const getLeafNodesCount = (node) => {
+    if (node.isLeaf) {
+      return 1;
+    }
+    if (node.children) {
+      return node.children.reduce((pCount, item) => {
+        pCount += getLeafNodesCount(item);
+        return pCount;
+      }, 0);
+    }
+    return 0;
+  };
+  if (frozenColCount) {
+    colCount = nodes.slice(0, frozenColCount).reduce((count, node) => {
+      count += getLeafNodesCount(node);
+      return count;
+    }, 0);
+  }
+  if (frozenTrailingColCount) {
+    trailingColCount = nodes
+      .slice(nodes.length - frozenTrailingColCount)
+      .reduce((count, node) => {
+        count += getLeafNodesCount(node);
+        return count;
+      }, 0);
+  }
+  return { colCount, trailingColCount };
+};
+
+/**
+ * 根据列配置树和已显示的字段，返回深拷贝过的过滤掉隐藏列的配置结构
+ * @param columnsTree
+ * @param fieldsMap
+ * @returns {ColumnNode} 配置结构
+ */
+export const getDisplayedColumnsTree = (
+  columnsTree: Array<ColumnNode | string>,
+  fieldsMap,
+): ColumnNode[] => {
+  return columnsTree.reduce((tree, column) => {
+    if (typeof column === 'string') {
+      column = { key: column };
+    }
+    const copyColumn = { ...column };
+    // 分支节点显示
+    if (copyColumn.children) {
+      copyColumn.children = getDisplayedColumnsTree(
+        copyColumn.children,
+        fieldsMap,
+      );
+      tree.push(copyColumn);
+      return tree;
+    }
+    // 非分支节点判断是否显示
+    if (fieldsMap[copyColumn.key]) {
+      tree.push(copyColumn);
+    }
+    return tree;
+  }, []);
+};
+
+/**
+ * 明细表多级表头判断一个 node 是不是顶层节点
+ * @param node
+ * @returns {boolean}
+ */
+export const isTopLevelNode = (node: Node): boolean => {
+  return node.parent.id === 'root';
+};
+
+/**
+ * 明细表多级表头根据一个 node 返回其所属顶层节点
+ * @param node
+ * @returns {Node}
+ */
+export const getNodeRoot = (node: Node): Node => {
+  while (!isTopLevelNode(node)) {
+    node = node.parent;
+  }
+  return node;
+};
+
+/**
+ * 获取 columns 的所有叶子节点
+ * @param columns 列配置
+ * @returns {Array} 叶子节点列组成的数组
+ */
+export const getLeafColumns = (columns: Columns): Columns => {
+  const leafs: Columns = [];
+  const recursionFn = (list) => {
+    list.forEach((column) => {
+      if (typeof column === 'string' || !column.children) {
+        leafs.push(column);
+      } else {
+        recursionFn(column.children);
+      }
+    });
+  };
+  recursionFn(columns);
+  return leafs;
+};
+
+/**
+ * 获取 columns 的所有叶子节点的 key
+ * @param columns 列配置
+ * @returns {Array<string>} 叶子节点列的key组成的数组
+ */
+export const getLeafColumnsWithKey = (columns: Columns): string[] => {
+  const leafs = getLeafColumns(columns);
+  return leafs.map((column) => {
+    if (typeof column === 'string') {
+      return column;
+    }
+    return column.key;
+  });
+};
+
+/**
+ * 获取一个 node 的最左叶子节点，找不到则返回自身
+ * @param node
+ * @returns {Node}
+ */
+export const getLeftLeafNode = (node: Node) => {
+  const firstNode = node.children[0];
+  if (!firstNode) {
+    return node;
+  }
+  return firstNode.isLeaf ? firstNode : getLeftLeafNode(firstNode);
+};
+/**
+ * fields 的 rows、columns、values、customTreeItems 值都为空时，返回 true
+ * @param {Fields} fields
+ * @return {boolean}
+ */
+export const areAllFieldsEmpty = (fields: Fields) => {
+  return (
+    isEmpty(fields.rows) &&
+    isEmpty(fields.columns) &&
+    isEmpty(fields.values) &&
+    isEmpty(fields.customTreeItems)
+  );
+};
+
+/**
+ * get frozen options pivot-sheet (business limit)
+ * @param options
+ * @returns
+ */
+export const getFrozenRowCfgPivot = (
+  options: Pick<
+    S2Options,
+    'frozenFirstRow' | 'pagination' | 'hierarchyType' | 'showSeriesNumber'
+  >,
+  rowNodes: Node[],
+): S2TableSheetOptions & {
+  frozenRowHeight: number;
+  enableFrozenFirstRow: boolean;
+} => {
+  const { pagination, frozenFirstRow, hierarchyType, showSeriesNumber } =
+    options;
+  const enablePagination = pagination && pagination.pageSize;
+  let enableFrozenFirstRow = false;
+  const headNode = rowNodes?.[0];
+  if (!enablePagination && frozenFirstRow) {
+    // first node no children: entire row
+    enableFrozenFirstRow = headNode?.children?.length === 0;
+    const treeMode = hierarchyType === 'tree' || hierarchyType === 'customTree';
+    if (treeMode && !enableFrozenFirstRow) {
+      enableFrozenFirstRow = !showSeriesNumber;
+    }
+  }
+  const effectiveFrozenFirstRow = enableFrozenFirstRow && !!headNode;
+  return {
+    frozenRowCount: effectiveFrozenFirstRow ? 1 : 0,
+    frozenColCount: 0,
+    frozenTrailingColCount: 0,
+    frozenTrailingRowCount: 0,
+    enableFrozenFirstRow,
+    frozenRowHeight: effectiveFrozenFirstRow ? headNode.height : 0,
+  };
+};
+
+export const replaceEmptyFieldValue = (value: string) =>
+  value === EMPTY_FIELD_VALUE ? EMPTY_PLACEHOLDER : value;

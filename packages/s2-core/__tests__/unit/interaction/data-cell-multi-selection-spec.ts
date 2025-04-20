@@ -1,8 +1,7 @@
-import { createFakeSpreadSheet } from 'tests/util/helpers';
+import { createFakeSpreadSheet, createMockCellInfo } from 'tests/util/helpers';
 import type { Event as GEvent } from '@antv/g-canvas';
-import { omit } from 'lodash';
 import { DataCellMultiSelection } from '@/interaction/data-cell-multi-selection';
-import type { CellMeta, S2Options, ViewMeta } from '@/common/interface';
+import type { CellMeta, S2Options } from '@/common/interface';
 import type { SpreadSheet } from '@/sheet-type';
 import {
   InteractionKeyboardKey,
@@ -12,36 +11,14 @@ import {
 } from '@/common/constant';
 
 jest.mock('@/interaction/event-controller');
+jest.mock('@/ui/hd-adapter');
 
 describe('Interaction Data Cell Multi Selection Tests', () => {
   let dataCellMultiSelection: DataCellMultiSelection;
   let s2: SpreadSheet;
 
-  const createMockCell = (
-    cellId: string,
-    { colIndex = 0, rowIndex = 0 } = {},
-  ) => {
-    const mockCellViewMeta: Partial<ViewMeta> = {
-      id: cellId,
-      colIndex,
-      rowIndex,
-      type: undefined,
-    };
-    const mockCellMeta = omit(mockCellViewMeta, 'update');
-    const mockCell = {
-      ...mockCellViewMeta,
-      getMeta: () => mockCellViewMeta,
-      hideInteractionShape: jest.fn(),
-    };
-
-    return {
-      mockCell,
-      mockCellMeta,
-    };
-  };
-
   beforeEach(() => {
-    const mockCell = createMockCell('testId1').mockCell as any;
+    const mockCell = createMockCellInfo('testId1').mockCell as any;
     s2 = createFakeSpreadSheet();
     s2.getCell = () => mockCell;
     s2.dataCfg = {
@@ -70,7 +47,7 @@ describe('Interaction Data Cell Multi Selection Tests', () => {
   });
 
   test.each([InteractionKeyboardKey.META, InteractionKeyboardKey.CONTROL])(
-    'should add click intercept when keydown',
+    'should add click intercept when %s keydown',
     (key) => {
       s2.emit(S2Event.GLOBAL_KEYBOARD_DOWN, {
         key,
@@ -81,11 +58,25 @@ describe('Interaction Data Cell Multi Selection Tests', () => {
   );
 
   test.each([InteractionKeyboardKey.META, InteractionKeyboardKey.CONTROL])(
-    'should remove click intercept when  keyup',
+    'should remove click intercept when %s keyup',
     (key) => {
+      s2.interaction.addIntercepts([InterceptType.CLICK]);
       s2.emit(S2Event.GLOBAL_KEYBOARD_UP, {
         key,
       } as KeyboardEvent);
+
+      expect(s2.interaction.hasIntercepts([InterceptType.CLICK])).toBeFalsy();
+    },
+  );
+
+  test.each([InteractionKeyboardKey.META, InteractionKeyboardKey.CONTROL])(
+    'should remove click intercept when %s released',
+    () => {
+      Object.defineProperty(dataCellMultiSelection, 'isMultiSelection', {
+        value: true,
+      });
+      s2.interaction.addIntercepts([InterceptType.CLICK]);
+      s2.emit(S2Event.GLOBAL_MOUSE_MOVE, {} as MouseEvent);
 
       expect(s2.interaction.hasIntercepts([InterceptType.CLICK])).toBeFalsy();
     },
@@ -102,10 +93,13 @@ describe('Interaction Data Cell Multi Selection Tests', () => {
         cells: [],
         stateName: InteractionStateName.SELECTED,
       });
-      const mockCellA = createMockCell('testId2', { rowIndex: 0, colIndex: 0 });
+      const mockCellA = createMockCellInfo('testId2', {
+        rowIndex: 0,
+        colIndex: 0,
+      });
       s2.interaction.getCells = () => [mockCellA.mockCellMeta as CellMeta];
 
-      const mockCellB = createMockCell('testId3', {
+      const mockCellB = createMockCellInfo('testId3', {
         rowIndex: 1,
         colIndex: 1,
       });
@@ -130,6 +124,7 @@ describe('Interaction Data Cell Multi Selection Tests', () => {
       expect(s2.interaction.getState()).toEqual({
         cells: [mockCellA.mockCellMeta, mockCellB.mockCellMeta],
         stateName: InteractionStateName.SELECTED,
+        onUpdateCells: expect.any(Function),
       });
 
       expect(
@@ -150,8 +145,11 @@ describe('Interaction Data Cell Multi Selection Tests', () => {
         key,
       } as KeyboardEvent);
 
-      const mockCellA = createMockCell('testId2', { rowIndex: 0, colIndex: 0 });
-      const mockCellB = createMockCell('testId3', {
+      const mockCellA = createMockCellInfo('testId2', {
+        rowIndex: 0,
+        colIndex: 0,
+      });
+      const mockCellB = createMockCellInfo('testId3', {
         rowIndex: 1,
         colIndex: 1,
       });
@@ -169,6 +167,7 @@ describe('Interaction Data Cell Multi Selection Tests', () => {
       expect(s2.interaction.getState()).toEqual({
         cells: [mockCellB.mockCellMeta],
         stateName: InteractionStateName.SELECTED,
+        onUpdateCells: expect.any(Function),
       });
 
       expect(
@@ -193,7 +192,10 @@ describe('Interaction Data Cell Multi Selection Tests', () => {
         cells: [],
         stateName: InteractionStateName.SELECTED,
       });
-      const mockCellA = createMockCell('testId2', { rowIndex: 0, colIndex: 0 });
+      const mockCellA = createMockCellInfo('testId2', {
+        rowIndex: 0,
+        colIndex: 0,
+      });
 
       s2.interaction.getCells = () => [mockCellA.mockCellMeta] as CellMeta[];
 
@@ -217,7 +219,7 @@ describe('Interaction Data Cell Multi Selection Tests', () => {
       cells: [],
       stateName: InteractionStateName.SELECTED,
     });
-    const mockCell00 = createMockCell('0-0', { rowIndex: 0, colIndex: 0 });
+    const mockCell00 = createMockCellInfo('0-0', { rowIndex: 0, colIndex: 0 });
 
     s2.getCell = () => mockCell00.mockCell as any;
 

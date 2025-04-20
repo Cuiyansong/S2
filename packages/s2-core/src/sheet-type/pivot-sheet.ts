@@ -1,11 +1,12 @@
 import type { Event as CanvasEvent } from '@antv/g-canvas';
 import { clone, last } from 'lodash';
-import { DataCell } from '../cell';
+import { BaseCell, DataCell, SeriesNumberCell } from '../cell';
 import {
   EXTRA_FIELD,
   InterceptType,
+  KEY_GROUP_PANEL_FROZEN_ROW,
+  PANEL_GROUP_FROZEN_GROUP_Z_INDEX,
   S2Event,
-  getTooltipOperatorTableSortMenus,
   getTooltipOperatorSortMenus,
 } from '../common/constant';
 import type {
@@ -21,6 +22,7 @@ import { PivotDataSet } from '../data-set';
 import { CustomTreePivotDataSet } from '../data-set/custom-tree-pivot-data-set';
 import { PivotFacet } from '../facet';
 import type { Node } from '../facet/layout/node';
+import { FrozenGroup } from '../group/frozen-group';
 import { SpreadSheet } from './spread-sheet';
 
 export class PivotSheet extends SpreadSheet {
@@ -34,6 +36,10 @@ export class PivotSheet extends SpreadSheet {
         ? new CustomTreePivotDataSet(this)
         : new PivotDataSet(this);
     return realDataSet;
+  }
+
+  public getContentHeight() {
+    return this.facet.getContentHeight();
   }
 
   /**
@@ -78,13 +84,13 @@ export class PivotSheet extends SpreadSheet {
    * Check if the value is in the columns
    */
   public isValueInCols(): boolean {
-    return this.dataSet.fields.valueInCols;
+    return this.dataSet?.fields?.valueInCols;
   }
 
   public clearDrillDownData(rowNodeId?: string, preventRender?: boolean) {
     if (this.dataSet instanceof PivotDataSet) {
-      this.dataSet.clearDrillDownData(rowNodeId);
-      if (!preventRender) {
+      const cleaned = this.dataSet.clearDrillDownData(rowNodeId);
+      if (cleaned && !preventRender) {
         // 重置当前交互
         this.interaction.reset();
         this.render(false);
@@ -157,6 +163,7 @@ export class PivotSheet extends SpreadSheet {
       style: {
         hierarchyCollapse: !isCollapsed,
         collapsedRows: null,
+        rowExpandDepth: null,
       },
     };
     this.setOptions(options);
@@ -166,7 +173,9 @@ export class PivotSheet extends SpreadSheet {
   public groupSortByMethod(sortMethod: SortMethod, meta: Node) {
     const { rows, columns } = this.dataCfg.fields;
     const ifHideMeasureColumn = this.options.style.colCfg.hideMeasureColumn;
-    const sortFieldId = this.isValueInCols() ? last(rows) : last(columns);
+    const sortFieldId = this.isValueInCols()
+      ? last(rows)
+      : last(columns as string[]);
     const { query, value } = meta;
     const sortQuery = clone(query);
     let sortValue = value;
@@ -185,11 +194,15 @@ export class PivotSheet extends SpreadSheet {
     const prevSortParams = this.dataCfg.sortParams.filter(
       (item) => item?.sortFieldId !== sortFieldId,
     );
+
+    this.updateSortMethodMap(meta.id, sortMethod, true);
+
+    const sortParams: SortParam[] = [...prevSortParams, sortParam];
     // 触发排序事件
-    this.emit(S2Event.RANGE_SORT, [...prevSortParams, sortParam]);
+    this.emit(S2Event.RANGE_SORT, sortParams);
     this.setDataCfg({
       ...this.dataCfg,
-      sortParams: [...prevSortParams, sortParam],
+      sortParams,
     });
     this.render();
   }
@@ -198,17 +211,40 @@ export class PivotSheet extends SpreadSheet {
     event.stopPropagation();
     this.interaction.addIntercepts([InterceptType.HOVER]);
 
+    const defaultSelectedKeys = this.getMenuDefaultSelectedKeys(meta?.id);
+
     const operator: TooltipOperatorOptions = {
       onClick: ({ key }) => {
-        this.groupSortByMethod(key as unknown as SortMethod, meta);
+        const sortMethod = key as unknown as SortMethod;
+        this.groupSortByMethod(sortMethod, meta);
         this.emit(S2Event.RANGE_SORTED, event);
       },
       menus: getTooltipOperatorSortMenus(),
+      defaultSelectedKeys,
     };
 
     this.showTooltipWithInfo(event, [], {
       operator,
       onlyMenu: true,
+      // 确保 tooltip 内容更新 https://github.com/antvis/S2/issues/1716
+      forceRender: true,
     });
+  }
+
+  protected initPanelGroupChildren(): void {
+    super.initPanelGroupChildren();
+    const commonParams = {
+      zIndex: PANEL_GROUP_FROZEN_GROUP_Z_INDEX,
+      s2: this,
+    };
+    this.frozenRowGroup = new FrozenGroup({
+      KEY_GROUP_PANEL_FROZEN_ROW,
+      ...commonParams,
+    });
+    this.panelGroup.add(this.frozenRowGroup);
+  }
+
+  protected isCellType(cell?: CanvasEvent['target']): boolean {
+    return cell instanceof BaseCell && !(cell instanceof SeriesNumberCell);
   }
 }

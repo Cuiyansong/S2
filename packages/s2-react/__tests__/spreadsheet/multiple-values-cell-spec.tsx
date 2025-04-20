@@ -20,7 +20,7 @@ import { getContainer } from '../util/helpers';
 import { SheetComponent } from '@/components';
 
 let sheet: SpreadSheet;
-const getSpreadSheet = (
+const onMounted = (
   dom: string | HTMLElement,
   dataCfg: S2DataConfig,
   options: S2Options,
@@ -79,14 +79,12 @@ const getDataCfg = (): S2DataConfig => {
 
 const getOptions = (): S2Options => {
   return {
-    debug: true,
     width: 800,
     height: 600,
     hierarchyType: 'tree',
     showSeriesNumber: true,
     frozenRowHeader: false,
     conditions: {
-      text: [],
       interval: [
         {
           field: 'price',
@@ -115,6 +113,7 @@ const getOptions = (): S2Options => {
           },
         },
       ],
+      text: [],
     },
     headerActionIcons: [
       {
@@ -222,7 +221,7 @@ function MainLayout(props) {
         dataCfg={dataCfg}
         adaptive={false}
         options={options}
-        spreadsheet={getSpreadSheet}
+        spreadsheet={onMounted}
       />
     </div>
   );
@@ -238,7 +237,6 @@ describe('spreadsheet multiple values cell spec', () => {
 
   test('should generate default conditions', () => {
     const { icon, text } = sheet.options.conditions;
-
     expect(icon).toHaveLength(1);
     expect(text).toHaveLength(0);
 

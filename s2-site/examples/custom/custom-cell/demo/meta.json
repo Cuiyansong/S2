@@ -51,6 +51,46 @@
         "en": "custom totals cell"
       },
       "screenshot": "https://gw.alipayobjects.com/zos/antfincdn/W22O8FkKz/8ab7d837-4d91-49c1-81a5-66d6de619206.png"
+    },
+    {
+      "filename": "custom-specified-cell.ts",
+      "title": {
+        "zh": "自定义特定单元格",
+        "en": "custom specified cell"
+      },
+      "screenshot": "https://mdn.alipayobjects.com/huamei_qa8qxu/afts/img/A*GSh4R6qdC5IAAAAAAAAAAAAADmJ7AQ/original"
+    },
+    {
+      "filename": "custom-merged-cell.ts",
+      "title": {
+        "zh": "自定义合并单元格",
+        "en": "custom merged cell"
+      },
+      "screenshot": "https://mdn.alipayobjects.com/huamei_qa8qxu/afts/img/A*B7mTTZYFjv8AAAAAAAAAAAAADmJ7AQ/original"
+    },
+    {
+      "filename": "custom-table-cell.ts",
+      "title": {
+        "zh": "自定义明细表单元格",
+        "en": "custom table cell"
+      },
+      "screenshot": "https://mdn.alipayobjects.com/huamei_qa8qxu/afts/img/A*-uLETb4gK9AAAAAAAAAAAAAADmJ7AQ/original"
+    },
+    {
+      "filename": "mini-chart.ts",
+      "title": {
+        "zh": "自定义 mini 图",
+        "en": "custom mini chart"
+      },
+      "screenshot": "https://mdn.alipayobjects.com/huamei_qa8qxu/afts/img/A*apnIT4KXP3YAAAAAAAAAAAAADmJ7AQ/original"
+    },
+    {
+      "filename": "data-cell-placeholder.ts",
+      "title": {
+        "zh": "自定义空数据单元格占位符",
+        "en": "custom cell placeholder"
+      },
+      "screenshot": "https://mdn.alipayobjects.com/huamei_qa8qxu/afts/img/A*B-VMT7kCWL0AAAAAAAAAAAAADmJ7AQ/original"
     }
   ]
 }

@@ -1,5 +1,5 @@
-import { FONT_FAMILY, MINI_BAR_CHART_HEIGHT } from '../common/constant';
-import type { S2Theme, ThemeCfg } from '../common/interface';
+import { FONT_FAMILY, INTERVAL_BAR_HEIGHT } from '../common/constant';
+import type { DefaultCellTheme, S2Theme, ThemeCfg } from '../common/interface';
 import type { SpreadSheet } from '../sheet-type';
 import { isMobile, isWindows } from '../utils/is-mobile';
 import { getPalette } from '../utils/theme';
@@ -18,256 +18,19 @@ export const getTheme = (
   } = themeCfg?.palette || getPalette(themeCfg?.name);
 
   const isTable = themeCfg?.spreadsheet?.isTableMode();
+  const boldTextDefaultFontWeight = isWindows() ? 'bold' : 700;
 
-  return {
-    // ------------- Headers -------------------
-    cornerCell: {
+  const getDataCell = () =>
+    ({
       bolderText: {
         fontFamily: FONT_FAMILY,
         fontSize: 12,
-        fontWeight: isWindows() ? 'bold' : 500,
-        fill: basicColors[0],
-        opacity: 1,
-        textAlign: isTable ? 'center' : 'left',
-        textBaseline: 'middle',
-      },
-      text: {
-        fontFamily: FONT_FAMILY,
-        fontSize: 12,
-        fontWeight: isWindows() ? 'bold' : 500,
-        fill: basicColors[0],
-        opacity: 1,
-        textAlign: 'right',
-        textBaseline: 'middle',
-      },
-      cell: {
-        // ----------- background color -----------
-        backgroundColor: basicColors[3],
-        backgroundColorOpacity: 1,
-        // ----------- border color --------------
-        horizontalBorderColor: basicColors[10],
-        horizontalBorderColorOpacity: 1,
-        verticalBorderColor: basicColors[10],
-        verticalBorderColorOpacity: 1,
-        // ----------- border width --------------
-        horizontalBorderWidth: 1,
-        verticalBorderWidth: 1,
-        // -------------- layout -----------------
-        padding: {
-          top: 0,
-          right: 8,
-          bottom: 0,
-          left: 8,
-        },
-      },
-      icon: {
-        fill: basicColors[0],
-        size: 10,
-        margin: {
-          right: 4,
-          left: 4,
-        },
-      },
-    },
-    rowCell: {
-      seriesText: {
-        fontFamily: FONT_FAMILY,
-        fontSize: 12,
-        fontWeight: 'normal',
-        fill: basicColors[14],
-        linkTextFill: basicColors[6],
-        opacity: 1,
-        textBaseline: 'middle',
-        textAlign: 'center',
-      },
-      measureText: {
-        fontFamily: FONT_FAMILY,
-        fontSize: 12,
-        fontWeight: 'normal',
-        fill: basicColors[14],
-        linkTextFill: basicColors[6],
-        opacity: 1,
-        textAlign: isTable ? 'center' : 'left',
-        textBaseline: 'top',
-      },
-      bolderText: {
-        fontFamily: FONT_FAMILY,
-        fontSize: 12,
-        fontWeight: isWindows() ? 'bold' : 500,
-        fill: basicColors[14],
-        linkTextFill: basicColors[6],
-        opacity: 1,
-        textAlign: isTable ? 'center' : 'left',
-        textBaseline: 'top',
-      },
-      text: {
-        fontFamily: FONT_FAMILY,
-        fontSize: 12,
-        fontWeight: 'normal',
-        fill: basicColors[14],
-        linkTextFill: basicColors[6],
-        opacity: 1,
-        textBaseline: 'top',
-        textAlign: isTable ? 'center' : 'left', // default align center for row cell in table mode
-      },
-      cell: {
-        // ----------- background color -----------
-        backgroundColor: basicColors[1],
-        backgroundColorOpacity: 1,
-        // ----------- bottom border color --------------
-        horizontalBorderColor: basicColors[9],
-        horizontalBorderColorOpacity: 1,
-        verticalBorderColor: basicColors[9],
-        verticalBorderColorOpacity: 1,
-        // ----------- bottom border width --------------
-        horizontalBorderWidth: 1,
-        verticalBorderWidth: 1,
-        // -------------- layout -----------------
-        padding: {
-          top: 0,
-          right: 8,
-          bottom: 0,
-          left: 8,
-        },
-        /* ---------- interaction state ----------- */
-        interactionState: {
-          // -------------- hover -------------------
-          hover: {
-            backgroundColor: basicColors[2],
-            backgroundOpacity: 0.6,
-          },
-          // -------------- selected -------------------
-          selected: {
-            backgroundColor: basicColors[2],
-            backgroundOpacity: 0.6,
-          },
-          // -------------- unselected -------------------
-          unselected: {
-            backgroundOpacity: 0.3,
-            textOpacity: 0.3,
-            opacity: 0.3,
-          },
-          // -------------- searchResult -------------------
-          searchResult: {
-            backgroundColor: otherColors?.results ?? basicColors[2],
-            backgroundOpacity: 1,
-          },
-          // -------------- highlight -------------------
-          highlight: {
-            backgroundColor: otherColors?.highlight ?? basicColors[6],
-            backgroundOpacity: 1,
-          },
-        },
-      },
-      icon: {
-        fill: basicColors[14],
-        size: 10,
-        margin: {
-          right: 4,
-          left: 4,
-        },
-      },
-      seriesNumberWidth: 80,
-    },
-    colCell: {
-      measureText: {
-        fontFamily: FONT_FAMILY,
-        fontSize: 12,
-        fontWeight: 'normal',
-        fill: basicColors[0],
-        opacity: 1,
-        // 默认数值字段和 dataCell 数值对齐
-        textAlign: 'right',
-        textBaseline: 'middle',
-      },
-      bolderText: {
-        fontFamily: FONT_FAMILY,
-        fontSize: 12,
-        fontWeight: isWindows() ? 'bold' : 500,
-        fill: basicColors[0],
-        opacity: 1,
-        textAlign: 'center',
-        textBaseline: 'middle',
-      },
-      text: {
-        fontFamily: FONT_FAMILY,
-        fontSize: 12,
-        fontWeight: 'normal',
-        fill: basicColors[0],
-        opacity: 1,
-        textAlign: 'center',
-        textBaseline: 'middle',
-      },
-      cell: {
-        // ----------- background color -----------
-        backgroundColor: basicColors[3],
-        backgroundColorOpacity: 1,
-        // ----------- border color --------------
-        horizontalBorderColor: basicColors[10],
-        horizontalBorderColorOpacity: 1,
-        verticalBorderColor: basicColors[10],
-        verticalBorderColorOpacity: 1,
-        // ----------- border width --------------
-        horizontalBorderWidth: 1,
-        verticalBorderWidth: 1,
-        // -------------- layout -----------------
-        padding: {
-          top: 0,
-          right: 8,
-          bottom: 0,
-          left: 8,
-        },
-        /* ---------- interaction state ----------- */
-        interactionState: {
-          // -------------- hover -------------------
-          hover: {
-            backgroundColor: basicColors[4],
-            backgroundOpacity: 0.6,
-          },
-          // -------------- selected -------------------
-          selected: {
-            backgroundColor: basicColors[4],
-            backgroundOpacity: 0.6,
-          },
-          // -------------- unselected -------------------
-          unselected: {
-            backgroundOpacity: 0.3,
-            textOpacity: 0.3,
-            opacity: 0.3,
-          },
-          // -------------- searchResult -------------------
-          searchResult: {
-            backgroundColor: otherColors?.results ?? basicColors[2],
-            backgroundOpacity: 1,
-          },
-          // -------------- highlight -------------------
-          highlight: {
-            backgroundColor: otherColors?.highlight ?? basicColors[6],
-            backgroundOpacity: 1,
-          },
-        },
-      },
-      icon: {
-        fill: basicColors[0],
-        size: 10,
-        margin: {
-          top: 6,
-          right: 4,
-          bottom: 6,
-          left: 4,
-        },
-      },
-    },
-    // ------------- DataCell -------------------
-    dataCell: {
-      bolderText: {
-        fontFamily: FONT_FAMILY,
-        fontSize: 12,
-        fontWeight: isWindows() ? 'bold' : 500,
+        fontWeight: boldTextDefaultFontWeight,
         fill: basicColors[13],
         opacity: 1,
         textAlign: 'right',
         textBaseline: 'middle',
+        linkTextFill: basicColors[6],
       },
       text: {
         fontFamily: FONT_FAMILY,
@@ -277,6 +40,7 @@ export const getTheme = (
         opacity: 1,
         textAlign: 'right',
         textBaseline: 'middle',
+        linkTextFill: basicColors[6],
       },
       cell: {
         // ----------- background color -----------
@@ -291,6 +55,8 @@ export const getTheme = (
         // ----------- border width --------------
         horizontalBorderWidth: 1,
         verticalBorderWidth: 1,
+        // -------------- border dash -----------------
+        borderDash: [],
         // -------------- layout -----------------
         padding: {
           top: 8,
@@ -341,9 +107,6 @@ export const getTheme = (
             borderWidth: 1,
           },
         },
-        // TODO 全部收敛到 miniChart 里
-        miniBarChartHeight: MINI_BAR_CHART_HEIGHT,
-        miniBarChartFillColor: basicColors[7],
       },
       // ------------- mini chart ---------------
       miniChart: {
@@ -369,14 +132,14 @@ export const getTheme = (
         // ------------- bullet graph -----------------
         bullet: {
           progressBar: {
-            widthPercent: 0.75,
+            widthPercent: 0.6,
             height: 10,
             innerHeight: 6,
           },
           comparativeMeasure: {
             width: 1,
             height: 12,
-            color: basicColors[13],
+            fill: basicColors[13],
             opacity: 0.25,
           },
           rangeColors: {
@@ -385,6 +148,11 @@ export const getTheme = (
             bad: semanticColors.red,
           },
           backgroundColor: '#E9E9E9',
+        },
+        // ------------ interval bar graph -----------------
+        interval: {
+          height: INTERVAL_BAR_HEIGHT,
+          fill: basicColors[7],
         },
       },
       icon: {
@@ -397,7 +165,269 @@ export const getTheme = (
           left: 4,
         },
       },
+    } as DefaultCellTheme);
+
+  return {
+    // ------------- Headers -------------------
+    cornerCell: {
+      bolderText: {
+        fontFamily: FONT_FAMILY,
+        fontSize: 12,
+        fontWeight: boldTextDefaultFontWeight,
+        fill: basicColors[0],
+        opacity: 1,
+        textAlign: isTable ? 'center' : 'left',
+        textBaseline: 'middle',
+      },
+      text: {
+        fontFamily: FONT_FAMILY,
+        fontSize: 12,
+        fontWeight: boldTextDefaultFontWeight,
+        fill: basicColors[0],
+        opacity: 1,
+        textAlign: 'right',
+        textBaseline: 'middle',
+      },
+      cell: {
+        // ----------- background color -----------
+        backgroundColor: basicColors[3],
+        backgroundColorOpacity: 1,
+        // ----------- border color --------------
+        horizontalBorderColor: basicColors[10],
+        horizontalBorderColorOpacity: 1,
+        verticalBorderColor: basicColors[10],
+        verticalBorderColorOpacity: 1,
+        // ----------- border width --------------
+        horizontalBorderWidth: 1,
+        verticalBorderWidth: 1,
+        // -------------- border dash -----------------
+        borderDash: [],
+        // -------------- layout -----------------
+        padding: {
+          top: 0,
+          right: 8,
+          bottom: 0,
+          left: 8,
+        },
+      },
+      icon: {
+        fill: basicColors[0],
+        size: 10,
+        margin: {
+          right: 4,
+          left: 4,
+        },
+      },
     },
+    rowCell: {
+      seriesText: {
+        fontFamily: FONT_FAMILY,
+        fontSize: 12,
+        fontWeight: 'normal',
+        fill: basicColors[14],
+        linkTextFill: basicColors[6],
+        opacity: 1,
+        textBaseline: isTable ? 'middle' : 'top',
+        textAlign: 'center',
+      },
+      measureText: {
+        fontFamily: FONT_FAMILY,
+        fontSize: 12,
+        fontWeight: 'normal',
+        fill: basicColors[14],
+        linkTextFill: basicColors[6],
+        opacity: 1,
+        textAlign: isTable ? 'center' : 'left',
+        textBaseline: 'top',
+      },
+      bolderText: {
+        fontFamily: FONT_FAMILY,
+        fontSize: 12,
+        fontWeight: boldTextDefaultFontWeight,
+        fill: basicColors[14],
+        linkTextFill: basicColors[6],
+        opacity: 1,
+        textAlign: isTable ? 'center' : 'left',
+        textBaseline: 'top',
+      },
+      text: {
+        fontFamily: FONT_FAMILY,
+        fontSize: 12,
+        fontWeight: 'normal',
+        fill: basicColors[14],
+        linkTextFill: basicColors[6],
+        opacity: 1,
+        textBaseline: 'top',
+        textAlign: isTable ? 'center' : 'left', // default align center for row cell in table mode
+      },
+      cell: {
+        // ----------- background color -----------
+        backgroundColor: basicColors[1],
+        backgroundColorOpacity: 1,
+        // ----------- bottom border color --------------
+        horizontalBorderColor: basicColors[9],
+        horizontalBorderColorOpacity: 1,
+        verticalBorderColor: basicColors[9],
+        verticalBorderColorOpacity: 1,
+        // ----------- bottom border width --------------
+        horizontalBorderWidth: 1,
+        verticalBorderWidth: 1,
+        // -------------- border dash -----------------
+        borderDash: [],
+        // -------------- layout -----------------
+        padding: {
+          top: 0,
+          right: 8,
+          bottom: 0,
+          left: 8,
+        },
+        /* ---------- interaction state ----------- */
+        interactionState: {
+          // -------------- hover -------------------
+          hover: {
+            backgroundColor: basicColors[2],
+            backgroundOpacity: 0.6,
+          },
+          // -------------- selected -------------------
+          selected: {
+            backgroundColor: basicColors[2],
+            backgroundOpacity: 0.6,
+          },
+          // -------------- unselected -------------------
+          unselected: {
+            backgroundOpacity: 0.3,
+            textOpacity: 0.3,
+            opacity: 0.3,
+          },
+          // -------------- prepare select --------------
+          prepareSelect: {
+            borderColor: basicColors[14],
+            borderOpacity: 1,
+            borderWidth: 1,
+          },
+          // -------------- searchResult -------------------
+          searchResult: {
+            backgroundColor: otherColors?.results ?? basicColors[2],
+            backgroundOpacity: 1,
+          },
+          // -------------- highlight -------------------
+          highlight: {
+            backgroundColor: otherColors?.highlight ?? basicColors[6],
+            backgroundOpacity: 1,
+          },
+        },
+      },
+      icon: {
+        fill: basicColors[14],
+        size: 10,
+        margin: {
+          right: 4,
+          left: 4,
+        },
+      },
+      seriesNumberWidth: 80,
+    },
+    colCell: {
+      measureText: {
+        fontFamily: FONT_FAMILY,
+        fontSize: 12,
+        fontWeight: 'normal',
+        fill: basicColors[0],
+        opacity: 1,
+        // 默认数值字段和 dataCell 数值对齐
+        textAlign: 'right',
+        textBaseline: 'middle',
+      },
+      bolderText: {
+        fontFamily: FONT_FAMILY,
+        fontSize: 12,
+        fontWeight: boldTextDefaultFontWeight,
+        fill: basicColors[0],
+        opacity: 1,
+        textAlign: 'center',
+        textBaseline: 'middle',
+      },
+      text: {
+        fontFamily: FONT_FAMILY,
+        fontSize: 12,
+        fontWeight: 'normal',
+        fill: basicColors[0],
+        opacity: 1,
+        textAlign: 'center',
+        textBaseline: 'middle',
+      },
+      cell: {
+        // ----------- background color -----------
+        backgroundColor: basicColors[3],
+        backgroundColorOpacity: 1,
+        // ----------- border color --------------
+        horizontalBorderColor: basicColors[10],
+        horizontalBorderColorOpacity: 1,
+        verticalBorderColor: basicColors[10],
+        verticalBorderColorOpacity: 1,
+        // ----------- border width --------------
+        horizontalBorderWidth: 1,
+        verticalBorderWidth: 1,
+        // -------------- border dash -----------------
+        borderDash: [],
+        // -------------- layout -----------------
+        padding: {
+          top: 0,
+          right: 8,
+          bottom: 0,
+          left: 8,
+        },
+        /* ---------- interaction state ----------- */
+        interactionState: {
+          // -------------- hover -------------------
+          hover: {
+            backgroundColor: basicColors[4],
+            backgroundOpacity: 0.6,
+          },
+          // -------------- selected -------------------
+          selected: {
+            backgroundColor: basicColors[4],
+            backgroundOpacity: 0.6,
+          },
+          // -------------- unselected -------------------
+          unselected: {
+            backgroundOpacity: 0.3,
+            textOpacity: 0.3,
+            opacity: 0.3,
+          },
+          // -------------- prepare select --------------
+          prepareSelect: {
+            borderColor: basicColors[14],
+            borderOpacity: 1,
+            borderWidth: 1,
+          },
+          // -------------- searchResult -------------------
+          searchResult: {
+            backgroundColor: otherColors?.results ?? basicColors[2],
+            backgroundOpacity: 1,
+          },
+          // -------------- highlight -------------------
+          highlight: {
+            backgroundColor: otherColors?.highlight ?? basicColors[6],
+            backgroundOpacity: 1,
+          },
+        },
+      },
+      icon: {
+        fill: basicColors[0],
+        size: 10,
+        margin: {
+          top: 6,
+          right: 4,
+          bottom: 6,
+          left: 4,
+        },
+      },
+    },
+    // ------------- DataCell -------------------
+    dataCell: getDataCell(),
+    // ------------- MergedCell -------------------
+    mergedCell: getDataCell(),
     // resize active area
     resizeArea: {
       size: 3,
@@ -419,6 +449,8 @@ export const getTheme = (
       trackColor: 'rgba(0,0,0,0.01)',
       thumbHoverColor: 'rgba(0,0,0,0.25)',
       thumbColor: 'rgba(0,0,0,0.15)',
+      thumbHorizontalMinSize: 32,
+      thumbVerticalMinSize: 32,
       size: isMobile() ? 3 : 6,
       hoverSize: isMobile() ? 4 : 8,
       lineCap: 'round',
@@ -437,6 +469,7 @@ export const getTheme = (
         left: 'rgba(0,0,0,0.1)',
         right: 'rgba(0,0,0,0)',
       },
+      borderDash: [],
     },
     // ------------- prepareSelectMask -----------------
     prepareSelectMask: {

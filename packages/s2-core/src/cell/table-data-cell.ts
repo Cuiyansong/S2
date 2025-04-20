@@ -13,20 +13,10 @@ import {
   getOrCreateResizeAreaGroupById,
   getResizeAreaAttrs,
 } from '../utils/interaction/resize';
+
 export class TableDataCell extends DataCell {
-  protected drawTextShape() {
-    super.drawTextShape();
-    this.drawLinkFieldShape();
-  }
-
-  protected drawLinkFieldShape() {
-    const { linkFields = [] } = this.spreadsheet.options.interaction;
-    const linkTextFill = this.theme.rowCell.text.linkTextFill;
-
-    super.drawLinkFieldShape(
-      linkFields.includes(this.meta.valueField),
-      linkTextFill,
-    );
+  protected getLinkFieldStyle() {
+    return this.theme.rowCell.text.linkTextFill;
   }
 
   protected drawBorderShape() {

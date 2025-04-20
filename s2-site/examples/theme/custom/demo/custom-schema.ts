@@ -1,7 +1,7 @@
 import { TableSheet } from '@antv/s2';
 
 fetch(
-  'https://gw.alipayobjects.com/os/bmw-prod/4eff53f3-f952-4b77-8862-4b6ecbd31667.json',
+  'https://render.alipay.com/p/yuyan/180020010001215413/s2/basic.json',
 )
   .then((res) => res.json())
   .then((data) => {
@@ -83,35 +83,6 @@ fetch(
           right: 'rgba(0,0,0,0)',
         },
       },
-      rowCell: {
-        text: {
-          fill: '#fff',
-          opacity: 0.4,
-          fontSize: 15,
-          fontWeight: 'bold',
-        },
-        cell: {
-          backgroundColor: HEADER_BACK_COLOR,
-          padding: {
-            top: 12,
-            right: 8,
-            bottom: 12,
-            left: 8,
-          },
-          interactionState: {
-            hover: {
-              backgroundColor: CELL_ACTIVE_BACK_COLOR,
-              backgroundOpacity: 1,
-            },
-            selected: {
-              backgroundColor: 'rgb(63, 69, 97)',
-            },
-          },
-          horizontalBorderColor: BORDER_COLOR,
-          verticalBorderColor: BORDER_COLOR,
-          verticalBorderWidth: 1,
-        },
-      },
       colCell: {
         cell: {
           horizontalBorderColor: BORDER_COLOR,
@@ -185,6 +156,7 @@ fetch(
           },
           backgroundColorOpacity: 0.9,
           backgroundColor: BACK_COLOR,
+          crossBackgroundColor: BACK_COLOR,
         },
         text: {
           fill: '#fff',

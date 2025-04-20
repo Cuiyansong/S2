@@ -1,10 +1,43 @@
+import { assembleDataCfg, assembleOptions } from 'tests/util';
+import { getContainer } from 'tests/util/helpers';
+import { forEach, last, map } from 'lodash';
+import { IElement } from '@antv/g-canvas';
 import type { RangeColors } from '../../../src/common/interface/theme';
+import {
+  drawBar,
+  drawBullet,
+  drawLine,
+  S2Options,
+  SpreadSheet,
+} from '../../../src';
+import { createPivotSheet } from '../../util/helpers';
+import { PivotSheet } from '@/sheet-type';
+import { CellTypes, MiniChartTypes, type S2CellType } from '@/common';
 import {
   getBulletRangeColor,
   transformRatioToPercent,
   scale,
+  drawInterval,
 } from '@/utils/g-mini-charts';
-import { MiniChartTypes, type S2CellType } from '@/common';
+import type { DataCell } from '@/cell';
+
+const getChartData = (type: MiniChartTypes) => {
+  return {
+    type,
+    data: [
+      { year: '2017', value: -368 },
+      { year: '2018', value: 368 },
+      { year: '2019', value: 368 },
+      { year: '2020', value: 368 },
+      { year: '2021', value: 368 },
+      { year: '2022', value: 368 },
+    ],
+    encode: {
+      x: 'year',
+      y: 'value',
+    },
+  };
+};
 
 describe('MiniCharts Utils Tests', () => {
   const padding = {
@@ -300,5 +333,174 @@ describe('MiniCharts Utils Tests', () => {
     expect(transformRatioToPercent(0.09, { min: 0, max: 2 })).toEqual('9%');
     expect(transformRatioToPercent(0.09)).toEqual('9%');
     expect(transformRatioToPercent(0.09, 2)).toEqual('9.00%');
+  });
+});
+
+describe('Render Chart Shape Tests', () => {
+  const s2Options: S2Options = {
+    width: 600,
+    height: 400,
+  };
+
+  let s2: SpreadSheet;
+  let cell: DataCell;
+  beforeEach(() => {
+    s2 = createPivotSheet(s2Options);
+    s2.render();
+    cell = s2.interaction.getPanelGroupAllDataCells()[0];
+  });
+
+  test('should render line shape', () => {
+    drawLine(getChartData(MiniChartTypes.Line), cell);
+
+    expect(
+      cell.getChildren().filter((shape) => shape.get('type') === 'polyline'),
+    ).toHaveLength(1);
+  });
+
+  test('should render bar shape', () => {
+    drawBar(getChartData(MiniChartTypes.Bar), cell);
+
+    expect(
+      cell.getChildren().filter((shape) => shape.get('type') === 'rect'),
+    ).toHaveLength(9);
+  });
+
+  test('should render bullet shape', () => {
+    drawBullet(
+      {
+        ...getChartData(MiniChartTypes.Bullet),
+        measure: 0.1,
+        target: 0.5,
+      },
+      cell,
+    );
+
+    const text = last(cell.getChildren()) as IElement;
+    expect(text.attr('text')).toEqual('10.00%');
+  });
+});
+
+describe('#drawInterval() Tests', () => {
+  const dataCfg = assembleDataCfg({
+    meta: [],
+    fields: {
+      columns: ['type', 'sub_type'],
+      rows: ['province', 'city'],
+      values: ['number'],
+    },
+  });
+  const options = assembleOptions({
+    conditions: {
+      interval: [
+        {
+          field: 'number',
+          mapping(value) {
+            return {
+              isCompare: true,
+              minValue: 0,
+              maxValue: 300,
+              fieldValue: 100,
+              fill: 'pink',
+            };
+          },
+        },
+      ],
+    },
+  });
+
+  const s2 = new PivotSheet(getContainer(), dataCfg, options);
+  beforeEach(() => {
+    s2.render();
+  });
+
+  test('should get right condition interval when only set fill', () => {
+    s2.setOptions({
+      conditions: {
+        interval: [
+          {
+            field: 'number',
+            mapping(value) {
+              return {
+                fill: 'pink',
+              };
+            },
+          },
+        ],
+      },
+    });
+    s2.render();
+
+    const cells = s2.interaction
+      .getAllCells()
+      .filter(({ cellType }) => cellType === CellTypes.DATA_CELL);
+
+    const allIntervalWidth = map(
+      cells,
+      (cell) => drawInterval(cell as DataCell)?.attr()?.width ?? 0,
+    );
+
+    expect(allIntervalWidth).toMatchSnapshot();
+  });
+
+  test('should get right condition interval when minValue and maxValue is custom', () => {
+    s2.setOptions({
+      conditions: {
+        interval: [
+          {
+            field: 'number',
+            mapping(value) {
+              return {
+                fill: 'pink',
+                isCompare: true,
+                minValue: 0,
+                maxValue: 400,
+              };
+            },
+          },
+        ],
+      },
+    });
+    s2.render();
+
+    const cells = s2.interaction
+      .getAllCells()
+      .filter(({ cellType }) => cellType === CellTypes.DATA_CELL);
+
+    const firstIntervalInfo = drawInterval(cells[0] as DataCell);
+    const lastIntervalInfo = drawInterval(cells[cells.length - 1] as DataCell);
+
+    expect(firstIntervalInfo?.attr().width).toEqual(undefined);
+    expect(lastIntervalInfo.attr().width).toEqual(88);
+  });
+
+  test('should get right condition interval when filedValue is custom', () => {
+    s2.setOptions({
+      conditions: {
+        interval: [
+          {
+            field: 'number',
+            mapping(value) {
+              return {
+                isCompare: true,
+                minValue: 0,
+                maxValue: 400,
+                fieldValue: 200,
+                fill: 'pink',
+              };
+            },
+          },
+        ],
+      },
+    });
+    s2.render();
+
+    const cells = s2.interaction
+      .getAllCells()
+      .filter(({ cellType }) => cellType === CellTypes.DATA_CELL);
+    forEach(cells, (cell) => {
+      const intervalInfo = drawInterval(cell as DataCell);
+      expect(intervalInfo.attr().width).toEqual(50);
+    });
   });
 });

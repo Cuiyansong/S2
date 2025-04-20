@@ -13,22 +13,45 @@
       "screenshot": "https://gw.alipayobjects.com/zos/antfincdn/l23NpRrPmF/hover.gif"
     },
     {
-      "filename": "click-highlight.ts",
+      "filename": "data-cell-click-selection.ts",
       "title": {
-        "zh": "单选高亮",
-        "en": "Click Highlighting"
+        "zh": "数值单元格单选/多选",
+        "en": "Data Cell Click Highlighting"
       },
       "screenshot": "https://gw.alipayobjects.com/zos/antfincdn/0lw2grIHZN/click.gif"
     },
     {
-      "filename": "select-highlight.ts",
+      "filename": "header-cell-click-selection.ts",
       "title": {
-        "zh": "圈选高亮",
-        "en": "Multiple Select Highlighting"
+        "zh": "行列头单选/多选",
+        "en": "Header Cell Highlighting"
+      },
+      "screenshot": "https://gw.alipayobjects.com/zos/antfincdn/XYZaL1w%24M/Kapture%2525202022-04-15%252520at%25252011.45.55.gif"
+    },
+    {
+      "filename": "data-cell-range-selection.ts",
+      "title": {
+        "zh": "区间多选",
+        "en": "Range Highlighting"
+      },
+      "screenshot": "https://gw.alipayobjects.com/zos/antfincdn/RcIcQc7O2/Kapture%2525202022-04-15%252520at%25252011.52.52.gif"
+    },
+    {
+      "filename": "brush-selection.ts",
+      "title": {
+        "zh": "圈选",
+        "en": "Brush Selection"
       },
       "screenshot": "https://gw.alipayobjects.com/zos/antfincdn/WBFq3TzTY9/multi-select.gif"
     },
-
+    {
+      "filename": "brush-header.ts",
+      "title": {
+        "zh": "行列头圈选",
+        "en": "Brush Row and Column Header"
+      },
+      "screenshot": "https://gw.alipayobjects.com/zos/antfincdn/2wKjHcOGD/quanxuanbiaotougongneng.gif"
+    },
     {
       "filename": "resize.ts",
       "title": {
@@ -40,10 +63,18 @@
     {
       "filename": "frozen.ts",
       "title": {
-        "zh": "行列冻结",
-        "en": "Freeze Rows And Cols"
+        "zh": "明细表 - 行列冻结",
+        "en": "TableSheet - Frozen Rows And Cols"
       },
       "screenshot": "https://gw.alipayobjects.com/zos/antfincdn/%24a16EsOCR8/frozeb.gif"
+    },
+    {
+      "filename": "frozen-row-header.ts",
+      "title": {
+        "zh": "透视表 - 行头冻结",
+        "en": "PivotSheet - Frozen Row Header"
+      },
+      "screenshot": "https://mdn.alipayobjects.com/huamei_qa8qxu/afts/img/A*kk0ETbbbnOsAAAAAAAAAAAAADmJ7AQ/original"
     },
     {
       "filename": "auto-reset-sheet-style.ts",
@@ -52,6 +83,22 @@
         "en": "Disable auto reset sheet style"
       },
       "screenshot": "https://gw.alipayobjects.com/zos/antfincdn/Lb0%26u6LtAu/reset.gif"
+    },
+    {
+      "filename": "hover-after-scroll.ts",
+      "title": {
+        "zh": "滚动后自动触发悬停状态",
+        "en": "Trigger hover after scroll"
+      },
+      "screenshot": "https://mdn.alipayobjects.com/huamei_qa8qxu/afts/img/A*NbG7SakRzXUAAAAAAAAAAAAADmJ7AQ/original.gif"
+    },
+    {
+      "filename": "state-theme.ts",
+      "title": {
+        "zh": "交互主题配置",
+        "en": "Interaction state theme"
+      },
+      "screenshot": "https://mdn.alipayobjects.com/huamei_qa8qxu/afts/img/A*6zM5TpfV7qIAAAAAAAAAAAAADmJ7AQ/original"
     }
   ]
 }

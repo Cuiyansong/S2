@@ -14,7 +14,7 @@
     <img alt="Version" src="https://img.shields.io/npm/v/@antv/s2/latest.svg" alt="version">
   </a>
   <a href="https://www.npmjs.com/package/@antv/s2" target="_blank">
-    <img alt="Version" src="https://img.shields.io/npm/v/@antv/s2/beta.svg" alt="version">
+    <img alt="Version" src="https://img.shields.io/npm/v/@antv/s2/next.svg" alt="next version">
   </a>
    <a href="https://github.com/antvis/S2/actions/workflows/test.yml" target="_blank">
     <img src="https://github.com/antvis/S2/actions/workflows/test.yml/badge.svg" alt="ci test status"/>
@@ -50,8 +50,8 @@ S2 是 AntV 在多维交叉分析表格领域的解决方案，完全基于数�
 
 ![homepage](https://gw.alipayobjects.com/zos/antfincdn/6R5Koawk9L/huaban%2525202.png)
 
-* [主页](https://antv-s2.gitee.io)
-* [Demo 示例](https://antv-s2.gitee.io/zh/examples/gallery)
+* [主页](https://s2.antv.antgroup.com/zh)
+* [Demo 示例](https://s2.antv.antgroup.com/zh/examples)
 
 ## ✨ 特性
 
@@ -66,6 +66,7 @@ S2 是 AntV 在多维交叉分析表格领域的解决方案，完全基于数�
 ```bash
 $ npm install @antv/s2
 # yarn add @antv/s2
+# pnpm add @antv/s2
 ```
 
 ## 🔨 使用
@@ -73,7 +74,7 @@ $ npm install @antv/s2
 ### 1. 数据准备
 
 <details>
-  <summary> s2DataConfig</summary>
+  <summary>s2DataConfig</summary>
 
 ```ts
 const s2DataConfig = {
@@ -142,7 +143,7 @@ const s2DataConfig = {
 ```ts
 const s2Options = {
   width: 600,
-  height: 600,
+  height: 600
 }
 ```
 
@@ -168,10 +169,11 @@ s2.render();
 
 ### 📦 Packages
 
-| Package  | Latest  |  Beta | Alpha | Size | Download |
-|---|---|---|---| --- | --- |
-| [@antv/s2](https://github.com/antvis/S2/tree/master/packages/s2-core)  | ![latest](https://img.shields.io/npm/v/@antv/s2/latest.svg)  |  ![beta](https://img.shields.io/npm/v/@antv/s2/beta.svg) | ![alpha](https://img.shields.io/npm/v/@antv/s2/alpha.svg) | ![size](https://img.badgesize.io/https:/unpkg.com/@antv/s2@latest/dist/index.min.js?label=gzip%20size&compression=gzip)  | ![download](https://img.shields.io/npm/dm/@antv/s2.svg) |
-| [@antv/s2-react](https://github.com/antvis/S2/tree/master/packages/s2-react)  | ![latest](https://img.shields.io/npm/v/@antv/s2-react/latest.svg)  |  ![beta](https://img.shields.io/npm/v/@antv/s2-react/beta.svg) | ![alpha](https://img.shields.io/npm/v/@antv/s2-react/alpha.svg) | ![size](https://img.badgesize.io/https:/unpkg.com/@antv/s2-react@latest/dist/index.min.js?label=gzip%20size&compression=gzip)  | ![download](https://img.shields.io/npm/dm/@antv/s2-react.svg) |
+| Package                                                                      | Latest                                                            | Beta                                                          | Alpha                                                           | Next                                                          | Size                                                                                                                          | Download                                                      |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [@antv/s2](https://github.com/antvis/S2/tree/master/packages/s2-core)        | ![latest](https://img.shields.io/npm/v/@antv/s2/latest.svg)       | ![beta](https://img.shields.io/npm/v/@antv/s2/beta.svg)       | ![alpha](https://img.shields.io/npm/v/@antv/s2/alpha.svg)       | ![next](https://img.shields.io/npm/v/@antv/s2/next.svg)       | ![size](https://img.badgesize.io/https:/unpkg.com/@antv/s2@latest/dist/index.min.js?label=gzip%20size&compression=gzip)       | ![download](https://img.shields.io/npm/dm/@antv/s2.svg)       |
+| [@antv/s2-react](https://github.com/antvis/S2/tree/master/packages/s2-react) | ![latest](https://img.shields.io/npm/v/@antv/s2-react/latest.svg) | ![beta](https://img.shields.io/npm/v/@antv/s2-react/beta.svg) | ![alpha](https://img.shields.io/npm/v/@antv/s2-react/alpha.svg) | ![next](https://img.shields.io/npm/v/@antv/s2-react/next.svg) | ![size](https://img.badgesize.io/https:/unpkg.com/@antv/s2-react@latest/dist/index.min.js?label=gzip%20size&compression=gzip) | ![download](https://img.shields.io/npm/dm/@antv/s2-react.svg) |
+| [@antv/s2-vue](https://github.com/antvis/S2/tree/master/packages/s2-vue)     | ![latest](https://img.shields.io/npm/v/@antv/s2-vue/latest.svg)   | ![beta](https://img.shields.io/npm/v/@antv/s2-vue/beta.svg)   | ![alpha](https://img.shields.io/npm/v/@antv/s2-vue/alpha.svg)   | ![next](https://img.shields.io/npm/v/@antv/s2-vue/next.svg)   | ![size](https://img.badgesize.io/https:/unpkg.com/@antv/s2-vue@latest/dist/index.min.js?label=gzip%20size&compression=gzip)   | ![download](https://img.shields.io/npm/dm/@antv/s2-vue.svg)   |
 
 ## 👤 Author
 
@@ -179,37 +181,41 @@ s2.render();
 
 ## 🤝 参与贡献
 
+> S2 使用 pnpm 作为包管理器
+
 ```bash
 git clone git@github.com:antvis/S2.git
 
 cd S2
 
 # 安装依赖
-yarn # 或者 yarn bootstrap
-
-# 调试 s2-core
-yarn core:start
-
-# 调试 s2-react
-yarn react:playground
-
-# 单元测试
-yarn test
+pnpm install # 或者 pnpm bootstrap
 
 # 打包
-yarn build
+pnpm build
+
+# 调试 s2-core
+pnpm core:start
+
+# 调试 s2-react
+pnpm react:playground
+
+# 调试 s2-vue
+pnpm vue:playground
+
+# 单元测试
+pnpm test
 
 # 代码风格和类型检测
-yarn lint
+pnpm lint
 
 # 本地启动官网
-yarn site:bootstrap
-yarn site:start
+pnpm site:start
 ```
 
-## 📧 联系我们
+## 📧 反馈问题
 
-<img style="width: 300px; height: auto" alt="S2" src="https://gw.alipayobjects.com/zos/antfincdn/2zjO70QLdp/7939a108-930c-42a9-a0d3-fbfdc2cc44cf.jpg"></a>
+有任何问题请严格按照模版 [提交 Issue](https://github.com/antvis/S2/issues/new/choose) 或在 [Discussions](https://github.com/antvis/S2/discussions) 提问。
 
 ## 👬 Contributors
 

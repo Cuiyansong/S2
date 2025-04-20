@@ -1,28 +1,28 @@
 // eslint-disable-next-line max-classes-per-file
-import { getContainer } from 'tests/util/helpers';
-import dataCfg from 'tests/data/simple-data.json';
 import { Canvas, Event as GEvent } from '@antv/g-canvas';
 import { cloneDeep, get, last } from 'lodash';
-import { PivotSheet, SpreadSheet } from '@/sheet-type';
+import dataCfg from 'tests/data/simple-data.json';
+import { getContainer } from 'tests/util/helpers';
+import type { CornerCell } from '@/cell/corner-cell';
 import {
   CellTypes,
-  type CustomSVGIcon,
-  getIcon,
   InterceptType,
   KEY_GROUP_PANEL_SCROLL,
+  S2Event,
+  TOOLTIP_CONTAINER_CLS,
+  getIcon,
+  setLang,
+  type CustomSVGIcon,
+  type LangType,
   type RowCellCollapseTreeRowsType,
   type S2DataConfig,
-  S2Event,
   type S2Options,
   type TooltipShowOptions,
-  TOOLTIP_CONTAINER_CLS,
-  setLang,
-  type LangType,
 } from '@/common';
 import { Node } from '@/facet/layout/node';
-import { customMerge, getSafetyDataConfig } from '@/utils';
+import { PivotSheet, SpreadSheet } from '@/sheet-type';
 import { BaseTooltip } from '@/ui/tooltip';
-import type { CornerCell } from '@/cell/corner-cell';
+import { customMerge, getSafetyDataConfig } from '@/utils';
 
 jest.mock('@/utils/hide-columns');
 
@@ -56,14 +56,14 @@ describe('PivotSheet Tests', () => {
 
   let container: HTMLDivElement;
 
-  beforeAll(() => {
+  beforeEach(() => {
     setLang('zh_CN');
     container = getContainer();
     s2 = new PivotSheet(container, dataCfg, s2Options);
     s2.render();
   });
 
-  afterAll(() => {
+  afterEach(() => {
     container?.remove();
     s2?.destroy();
   });
@@ -115,7 +115,7 @@ describe('PivotSheet Tests', () => {
       s2.tooltip.destroy();
 
       // remove container
-      expect(s2.tooltip.container).toBe(null);
+      expect(s2.tooltip.container).toBeFalsy();
       // reset position
       expect(s2.tooltip.position).toEqual({
         x: 0,
@@ -455,6 +455,53 @@ describe('PivotSheet Tests', () => {
     expect(s2.options.showSeriesNumber).toBeTruthy();
   });
 
+  test('should init new tooltip', () => {
+    const tooltipDestorySpy = jest
+      .spyOn(s2.tooltip, 'destroy')
+      .mockImplementationOnce(() => {});
+
+    class CustomTooltip extends BaseTooltip {}
+
+    s2.setOptions({
+      tooltip: {
+        renderTooltip: (spreadsheet) => new CustomTooltip(spreadsheet),
+      },
+    });
+
+    expect(tooltipDestorySpy).toHaveBeenCalled();
+    expect(s2.tooltip).toBeInstanceOf(CustomTooltip);
+  });
+
+  test('should refresh brush selection info', () => {
+    s2.setOptions({
+      interaction: {
+        brushSelection: true,
+      },
+    });
+
+    expect(s2.interaction.getBrushSelection()).toStrictEqual({
+      data: true,
+      row: true,
+      col: true,
+    });
+
+    s2.setOptions({
+      interaction: {
+        brushSelection: {
+          data: true,
+          row: false,
+          col: false,
+        },
+      },
+    });
+
+    expect(s2.interaction.getBrushSelection()).toStrictEqual({
+      data: true,
+      row: false,
+      col: false,
+    });
+  });
+
   test('should render sheet', () => {
     const facetRenderSpy = jest
       .spyOn(s2, 'buildFacet' as any)
@@ -473,6 +520,19 @@ describe('PivotSheet Tests', () => {
     // emit hooks
     expect(beforeRender).toHaveBeenCalledTimes(1);
     expect(afterRender).toHaveBeenCalledTimes(1);
+  });
+
+  test('should emit after real dataCell render', () => {
+    const afterRealDataCellRender = jest.fn();
+    const sheet = new PivotSheet(container, dataCfg, s2Options);
+
+    sheet.on(
+      S2Event.LAYOUT_AFTER_REAL_DATA_CELL_RENDER,
+      afterRealDataCellRender,
+    );
+    sheet.render();
+
+    expect(afterRealDataCellRender).toHaveBeenCalledTimes(1);
   });
 
   test('should updatePagination', () => {
@@ -544,7 +604,8 @@ describe('PivotSheet Tests', () => {
     expect(s2.foregroundGroup.getChildren()).toHaveLength(9);
 
     // panel scroll group
-    expect(s2.panelGroup.getChildren()).toHaveLength(1);
+    // contain panelScrollGroup and frozenRowGroup
+    expect(s2.panelGroup.getChildren()).toHaveLength(2);
     expect(s2.panelGroup.findAllByName(KEY_GROUP_PANEL_SCROLL)).toHaveLength(1);
   });
 
@@ -596,7 +657,7 @@ describe('PivotSheet Tests', () => {
   test('should clear init column nodes', () => {
     s2.store.set('initColumnLeafNodes', [null, null]);
 
-    s2.clearColumnLeafNodes();
+    s2.clearInitColumnLeafNodes();
 
     expect(s2.store.get('initColumnLeafNodes')).toBeFalsy();
   });
@@ -645,7 +706,7 @@ describe('PivotSheet Tests', () => {
 
     const clearDrillDownDataSpy = jest
       .spyOn(s2.dataSet, 'clearDrillDownData' as any)
-      .mockImplementation(() => {});
+      .mockImplementation(() => true);
 
     s2.clearDrillDownData();
 
@@ -659,6 +720,20 @@ describe('PivotSheet Tests', () => {
     ).toBeFalsy();
 
     renderSpy.mockRestore();
+  });
+
+  test(`shouldn't rerender without drill down data`, () => {
+    const renderSpy = jest.spyOn(s2, 'render').mockImplementationOnce(() => {});
+
+    const clearDrillDownDataSpy = jest
+      .spyOn(s2.dataSet, 'clearDrillDownData' as any)
+      .mockImplementation(() => false);
+
+    s2.clearDrillDownData();
+
+    expect(clearDrillDownDataSpy).toHaveBeenCalledTimes(1);
+    // rerender
+    expect(renderSpy).toHaveBeenCalledTimes(0);
   });
 
   test('should get extra field text', () => {
@@ -813,7 +888,7 @@ describe('PivotSheet Tests', () => {
   });
 
   // https://github.com/antvis/S2/issues/1421
-  test.each(['zh_CN', 'en_US'])(
+  test.each(['zh_CN', 'en_US', 'ru_RU'])(
     'should render group sort menu',
     (lang: LangType) => {
       setLang(lang);
@@ -831,15 +906,30 @@ describe('PivotSheet Tests', () => {
       sheet.handleGroupSort(event, null);
 
       const isEnUS = lang === 'en_US';
-      const groupAscText = isEnUS ? 'Group ASC' : '组内升序';
-      const groupDescText = isEnUS ? 'Group DESC' : '组内降序';
-      const groupNoneText = isEnUS ? 'No order' : '不排序';
+      const isRu = lang === 'ru_RU';
+
+      let groupAscText = '组内升序';
+      let groupDescText = '组内降序';
+      let groupNoneText = '不排序';
+
+      if (isEnUS) {
+        groupAscText = 'Group ASC';
+        groupDescText = 'Group DESC';
+        groupNoneText = 'No order';
+      }
+
+      if (isRu) {
+        groupAscText = 'Группировать по возрастанию';
+        groupDescText = 'Группировать по убыванию';
+        groupNoneText = 'Не отсортировано';
+      }
 
       expect(showTooltipWithInfoSpy).toHaveBeenLastCalledWith(
         expect.anything(),
         expect.anything(),
         {
           onlyMenu: true,
+          forceRender: true,
           operator: {
             menus: [
               { icon: 'groupAsc', key: 'asc', text: groupAscText },
@@ -847,6 +937,7 @@ describe('PivotSheet Tests', () => {
               { key: 'none', text: groupNoneText },
             ],
             onClick: expect.anything(),
+            defaultSelectedKeys: [],
           },
         },
       );
@@ -859,7 +950,9 @@ describe('PivotSheet Tests', () => {
 
     const showTooltipWithInfoSpy = jest
       .spyOn(s2, 'showTooltipWithInfo')
-      .mockImplementation(() => {});
+      .mockImplementation((event, data, options) => ({
+        forceRender: options.forceRender,
+      }));
 
     const nodeMeta = new Node({ id: '1', key: '1', value: 'testValue' });
 
@@ -870,7 +963,7 @@ describe('PivotSheet Tests', () => {
       nodeMeta,
     );
 
-    expect(showTooltipWithInfoSpy).toHaveBeenCalledTimes(1);
+    expect(showTooltipWithInfoSpy).toHaveReturnedWith({ forceRender: true });
 
     s2.groupSortByMethod('asc', nodeMeta);
 
@@ -878,11 +971,15 @@ describe('PivotSheet Tests', () => {
       {
         query: undefined,
         sortByMeasure: nodeMeta.value,
-        sortFieldId: 'field',
+        sortFieldId: 'city',
         sortMethod: 'asc',
       },
     ]);
     expect(renderSpy).toHaveBeenCalledTimes(1);
+    expect(s2.store.get('sortMethodMap')).toEqual({
+      '1': 'asc',
+    });
+    expect(s2.getMenuDefaultSelectedKeys(nodeMeta.id)).toEqual(['asc']);
 
     s2.groupSortByMethod('desc', nodeMeta);
 
@@ -890,11 +987,15 @@ describe('PivotSheet Tests', () => {
       {
         query: undefined,
         sortByMeasure: nodeMeta.value,
-        sortFieldId: 'field',
+        sortFieldId: 'city',
         sortMethod: 'desc',
       },
     ]);
 
+    expect(s2.store.get('sortMethodMap')).toEqual({
+      '1': 'desc',
+    });
+    expect(s2.getMenuDefaultSelectedKeys(nodeMeta.id)).toEqual(['desc']);
     expect(s2.interaction.hasIntercepts([InterceptType.HOVER])).toBeTruthy();
     expect(renderSpy).toHaveBeenCalledTimes(2);
 
@@ -917,10 +1018,11 @@ describe('PivotSheet Tests', () => {
       {
         query: { $$extra$$: 'price', type: '笔' },
         sortByMeasure: 'price',
-        sortFieldId: 'field',
+        sortFieldId: 'city',
         sortMethod: 'asc',
       },
     ]);
+    expect(s2.getMenuDefaultSelectedKeys(nodeMeta.id)).toEqual(['asc']);
   });
 
   test('should destroy sheet', () => {
@@ -937,7 +1039,10 @@ describe('PivotSheet Tests', () => {
     s2.store.set('test', 111);
 
     // restore mock...
-    (s2.tooltip.show as jest.Mock).mockRestore();
+    const tooltipShowSpy = jest
+      .spyOn(s2.tooltip, 'show')
+      .mockImplementationOnce(() => {});
+    tooltipShowSpy.mockRestore();
     s2.showTooltip({
       position: {
         x: 10,
@@ -1117,5 +1222,23 @@ describe('PivotSheet Tests', () => {
 
       sheet.destroy();
     });
+  });
+
+  test('should emit destroy event', () => {
+    const onDestroy = jest.fn();
+    s2.on(S2Event.LAYOUT_DESTROY, onDestroy);
+
+    s2.destroy();
+
+    expect(onDestroy).toHaveBeenCalledTimes(1);
+  });
+
+  test('get sheetInstance from canvas', () => {
+    const canvas = s2.getCanvasElement();
+    // eslint-disable-next-line no-underscore-dangle
+    expect(canvas.__s2_instance__).toEqual(s2);
+    s2.destroy();
+    // eslint-disable-next-line no-underscore-dangle
+    expect(canvas.__s2_instance__).toBe(undefined);
   });
 });

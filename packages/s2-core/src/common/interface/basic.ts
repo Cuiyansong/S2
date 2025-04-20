@@ -1,4 +1,5 @@
 import type { Event, ShapeAttrs } from '@antv/g-canvas';
+import type { MergedCell } from '../../cell';
 import type { CellTypes } from '../../common/constant';
 import type { CustomTreeItem, Data, ResizeInfo } from '../../common/interface';
 import type { FrameConfig } from '../../common/interface/frame';
@@ -6,7 +7,7 @@ import type {
   S2BasicOptions,
   S2TableSheetOptions,
 } from '../../common/interface/s2Options';
-import type { BaseDataSet, DataType } from '../../data-set';
+import type { BaseDataSet, DataType, Query } from '../../data-set';
 import type { Frame } from '../../facet/header';
 import type { BaseHeaderConfig } from '../../facet/header/base';
 import type { Hierarchy } from '../../facet/layout/hierarchy';
@@ -85,19 +86,26 @@ export interface Extra {
   remark: string;
 }
 
+export type Columns = Array<ColumnNode | string>;
+
 export interface Fields {
   // row fields
   rows?: string[];
   // custom tree data(only use in row header in pivot mode)
   customTreeItems?: CustomTreeItem[];
   // columns fields
-  columns?: string[];
+  columns?: Columns;
   // value fields
   values?: string[];
   // measure values in cols as new col, only works for PivotSheet
   valueInCols?: boolean;
   // the order of the measure values in rows or cols, only works for PivotSheet
   customValueOrder?: number;
+}
+
+export interface ColumnNode {
+  key: string;
+  children?: Columns;
 }
 
 export interface TotalsStatus {
@@ -116,7 +124,11 @@ export enum Aggregation {
 
 export interface CalcTotals {
   aggregation?: Aggregation; // 聚合方式
-  calcFunc?: (query: DataType, arr: DataType[]) => number;
+  calcFunc?: (
+    query: Query,
+    data: DataType[],
+    spreadsheet: SpreadSheet,
+  ) => number;
 }
 
 export interface Total {
@@ -143,6 +155,10 @@ export interface Total {
   label?: string;
   // sub label's display name, default = '小计'
   subLabel?: string;
+  /** 总计分组维度 */
+  totalsGroupDimensions?: string[];
+  /** 小计分组维度 */
+  subTotalsGroupDimensions?: string[];
 }
 
 /**
@@ -194,6 +210,8 @@ export interface Style {
   treeRowsWidth?: number;
   // 树状分层模式下的全局收起展开属性，对应角头收起展开按钮
   hierarchyCollapse?: boolean;
+  // 树状分层模式下，行头默认展开到第几层
+  rowExpandDepth?: number;
   // row header in tree mode collapse some nodes
   collapsedRows?: Record<string, boolean>;
   // col header collapse nodes
@@ -204,14 +222,14 @@ export interface Style {
   device?: 'pc' | 'mobile'; // 设备，pc || mobile
 }
 
-export type Pagination = {
+export interface Pagination {
   // 每页数量
   pageSize: number;
   // 当前页
   current: number; // 从 1 开始
   // 数据总条数
   total?: number;
-};
+}
 
 export interface CustomSVGIcon {
   // icon 类型名
@@ -287,6 +305,12 @@ export type CellCallback<T extends BaseHeaderConfig> = (
 
 export type DataCellCallback = (viewMeta: ViewMeta) => S2CellType;
 
+export type MergedCellCallback = (
+  spreadsheet: SpreadSheet,
+  cells: S2CellType[],
+  meta?: ViewMeta,
+) => MergedCell;
+
 export type FrameCallback = (cfg: FrameConfig) => Frame;
 
 export type CornerHeaderCallback = (
@@ -314,6 +338,8 @@ export interface CellCfg {
     originalValueField?: string;
     // 每一列数值占单元格宽度百分比 Map
     widthPercent?: number[];
+    // 是否显示原始值
+    showOriginalValue?: boolean;
   };
 }
 
@@ -419,9 +445,9 @@ export interface ViewMeta {
   // subTotals or grandTotals
   isTotals?: boolean;
   // cell's row query condition
-  rowQuery?: Record<string, any>;
+  rowQuery?: Query;
   // cell's col query condition
-  colQuery?: Record<string, any>;
+  colQuery?: Query;
   // rowId of cell
   rowId?: string;
   colId?: string;
@@ -429,7 +455,7 @@ export interface ViewMeta {
   isFrozenCorner?: boolean;
   label?: string;
   value?: string | number;
-  query?: Record<string, any>;
+  query?: Query;
   [key: string]: unknown;
 }
 
@@ -449,6 +475,10 @@ export interface LayoutResult {
 }
 
 export interface OffsetConfig {
+  rowHeaderOffsetX?: {
+    value: number | undefined;
+    animate?: boolean;
+  };
   offsetX?: {
     value: number | undefined;
     animate?: boolean;
@@ -504,3 +534,5 @@ export interface GridInfo {
   cols: number[];
   rows: number[];
 }
+
+export type RowData = Data | DataType;

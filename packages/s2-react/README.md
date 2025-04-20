@@ -12,7 +12,7 @@
     <img alt="Version" src="https://img.shields.io/npm/v/@antv/s2-react/latest.svg" alt="latest version">
   </a>
   <a href="https://www.npmjs.com/package/@antv/s2-react" target="_blank">
-    <img alt="Version" src="https://img.shields.io/npm/v/@antv/s2-react/beta.svg" alt="beta version">
+    <img alt="Version" src="https://img.shields.io/npm/v/@antv/s2-react/next.svg" alt="next version">
   </a>
    <a href="https://github.com/antvis/S2/actions/workflows/test.yml" target="_blank">
     <img src="https://github.com/antvis/S2/actions/workflows/test.yml/badge.svg" alt="ci test status"/>
@@ -26,6 +26,7 @@
 ```bash
 $ npm install @antv/s2-react
 # yarn add @antv/s2-react
+# pnpm add @antv/s2-react
 ```
 
 ## 🔨 使用
@@ -105,7 +106,7 @@ const s2DataConfig = {
 ```ts
 const s2Options = {
   width: 600,
-  height: 480,
+  height: 480
 }
 ```
 
@@ -117,18 +118,17 @@ const s2Options = {
 <div id="container"></div>
 ```
 
-```ts
+```tsx
+import ReactDOM from 'react-dom'
 import { SheetComponent } from '@antv/s2-react';
 import '@antv/s2-react/dist/style.min.css';
-
-const container = document.getElementById('container');
 
 ReactDOM.render(
   <SheetComponent
     dataCfg={s2DataConfig}
     options={s2Options}
   />,
-  document.getElementById('container'),
+  document.getElementById('container')
 );
 ```
 

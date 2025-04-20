@@ -5,6 +5,7 @@ import type { S2Options, ViewMeta } from '@/common/interface';
 import { HoverEvent } from '@/interaction/base-interaction/hover';
 import type { SpreadSheet } from '@/sheet-type';
 import {
+  ELLIPSIS_SYMBOL,
   HOVER_FOCUS_DURATION,
   InteractionStateName,
   OriginEventType,
@@ -27,6 +28,7 @@ describe('Interaction Hover Tests', () => {
   const mockTooltipParams = [
     [{ value: undefined, valueField: undefined }],
     {
+      enableFormat: true,
       enterable: true,
       hideSummary: true,
       isTotals: undefined,
@@ -46,8 +48,9 @@ describe('Interaction Hover Tests', () => {
         }
         return mockCell;
       },
-      getActualText: () => '...',
+      getActualText: () => ELLIPSIS_SYMBOL,
       getFieldValue: () => '',
+      isTextOverflowing: () => true,
       cellType: 'dataCell',
     } as any);
 
@@ -71,7 +74,7 @@ describe('Interaction Hover Tests', () => {
     mockCellUpdate.mockReset();
   });
 
-  afterAll(() => {
+  afterEach(() => {
     mockCellUpdate.mockRestore();
   });
 
@@ -80,6 +83,15 @@ describe('Interaction Hover Tests', () => {
   });
 
   test('should trigger data cell hover', async () => {
+    const interactionGetHoverHighlightSpy = jest
+      .spyOn(s2.interaction, 'getHoverHighlight')
+      .mockImplementationOnce(() => ({
+        rowHeader: true,
+        colHeader: true,
+        currentRow: true,
+        currentCol: true,
+      }));
+
     s2.emit(S2Event.DATA_CELL_HOVER, { target: {} } as GEvent);
     expect(s2.interaction.getState()).toEqual({
       cells: [mockCellMeta],
@@ -93,6 +105,37 @@ describe('Interaction Hover Tests', () => {
       stateName: InteractionStateName.HOVER_FOCUS,
     });
     expect(s2.showTooltipWithInfo).toHaveBeenCalled();
+    expect(interactionGetHoverHighlightSpy).toHaveBeenCalled();
+  });
+
+  test('should trigger data cell hover depend on separate config', async () => {
+    s2.interaction.getAllColHeaderCells = jest.fn();
+    s2.interaction.getAllRowHeaderCells = jest.fn();
+
+    s2.setOptions({
+      interaction: {
+        hoverHighlight: {
+          colHeader: true,
+          rowHeader: false,
+        },
+      },
+    });
+
+    s2.emit(S2Event.DATA_CELL_HOVER, { target: {} } as GEvent);
+    expect(s2.interaction.getState()).toEqual({
+      cells: [mockCellMeta],
+      stateName: InteractionStateName.HOVER,
+    });
+
+    await sleep(1000);
+
+    expect(s2.interaction.getState()).toEqual({
+      cells: [mockCellMeta],
+      stateName: InteractionStateName.HOVER_FOCUS,
+    });
+
+    expect(s2.interaction.getAllColHeaderCells).toHaveBeenCalled();
+    expect(s2.interaction.getAllRowHeaderCells).not.toHaveBeenCalled();
   });
 
   test('should not trigger data cell hover when hover cell not change', () => {
@@ -235,7 +278,7 @@ describe('Interaction Hover Tests', () => {
     expect(s2.interaction.isHoverFocusState()).toBeTruthy();
   });
 
-  test("should dont't update state when data cell hover focus but disable hoverFocus options", async () => {
+  test('should not update state when data cell hover focus but disable hoverFocus options', async () => {
     s2.options = {
       interaction: {
         hoverHighlight: true,
@@ -255,4 +298,62 @@ describe('Interaction Hover Tests', () => {
     expect(s2.interaction.isHoverFocusState()).toBeFalsy();
     expect(s2.interaction.getHoverTimer()).toBeFalsy();
   });
+
+  test.each([
+    S2Event.CORNER_CELL_HOVER,
+    S2Event.DATA_CELL_HOVER,
+    S2Event.COL_CELL_HOVER,
+    S2Event.DATA_CELL_HOVER,
+  ])(
+    'should show tooltip if cell text contain ellipsis text when cell hover for %s',
+    async (eventName) => {
+      const cellEvent = {
+        target: {
+          id: 'cell',
+        },
+      };
+      s2.emit(eventName, cellEvent as unknown as GEvent);
+
+      await sleep(HOVER_FOCUS_DURATION + 200);
+
+      expect(s2.showTooltipWithInfo).toHaveBeenCalled();
+      expect(s2.hideTooltip).toHaveBeenCalled();
+    },
+  );
+
+  test.each([
+    S2Event.CORNER_CELL_HOVER,
+    S2Event.DATA_CELL_HOVER,
+    S2Event.COL_CELL_HOVER,
+  ])(
+    'should not show tooltip if cell text not contain ellipsis text when cell hover for %s',
+    (eventName) => {
+      s2.getCell = (target) =>
+        ({
+          update: mockCellUpdate,
+          getMeta: () => {
+            if (target) {
+              return {
+                ...mockCell,
+                ...target,
+              };
+            }
+            return mockCell;
+          },
+          getActualText: () => 'test',
+          getFieldValue: () => 'test',
+          isTextOverflowing: jest.fn(() => false),
+          cellType: 'dataCell',
+        } as any);
+
+      const cellEvent = {
+        target: {
+          id: 'cell',
+        },
+      };
+      s2.emit(eventName, cellEvent as unknown as GEvent);
+
+      expect(s2.showTooltipWithInfo).not.toHaveBeenCalled();
+    },
+  );
 });

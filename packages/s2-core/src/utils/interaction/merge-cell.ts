@@ -15,8 +15,10 @@ import type {
   S2CellType,
   TempMergedCell,
   ViewMeta,
+  MergedCellCallback,
 } from '../../common/interface';
 import type { SpreadSheet } from '../../sheet-type';
+
 /**
  *  according to the coordinates of the starting point of the rectangle,
  * return the four sides of the rectangle in a clockwise direction.
@@ -227,6 +229,25 @@ export const getActiveCellsInfo = (sheet: SpreadSheet) => {
 };
 
 /**
+ * 创建 merged cell 实例
+ * @param spreadsheet 表格实例
+ * @param cells 待合并的单元格
+ * @param meta 元信息
+ * @returns
+ */
+export const getMergedCellInstance: MergedCellCallback = (
+  spreadsheet,
+  cells,
+  meta,
+) => {
+  if (spreadsheet.options?.mergedCell) {
+    return spreadsheet.options.mergedCell(spreadsheet, cells, meta);
+  }
+
+  return new MergedCell(spreadsheet, cells, meta);
+};
+
+/**
  * draw the background of the merged cell
  * @param sheet the base sheet instance
  * @param cellsInfo
@@ -241,7 +262,7 @@ export const mergeCell = (
 
   if (mergeCellInfo?.length <= 1) {
     // eslint-disable-next-line no-console
-    console.error('then merged cells must be more than one');
+    console.error('[mergeCell]: The merged cells must be more than one!');
     return;
   }
 
@@ -258,7 +279,10 @@ export const mergeCell = (
       mergedCellsInfo: mergedCellInfoList,
     });
     const meta = hideData ? undefined : viewMeta;
-    sheet.panelScrollGroup.addMergeCell(new MergedCell(sheet, cells, meta));
+
+    sheet.panelScrollGroup.addMergeCell(
+      getMergedCellInstance(sheet, cells, meta),
+    );
   }
 };
 
@@ -293,24 +317,24 @@ export const removeUnmergedCellsInfo = (
 
 /**
  * unmerge MergedCell
- * @param removedCells
+ * @param removedCell
  * @param sheet
  */
-export const unmergeCell = (sheet: SpreadSheet, removedCells: MergedCell) => {
-  if (!removedCells || removedCells.cellType !== CellTypes.MERGED_CELL) {
+export const unmergeCell = (sheet: SpreadSheet, removedCell: MergedCell) => {
+  if (!removedCell || removedCell.cellType !== CellTypes.MERGED_CELL) {
     // eslint-disable-next-line no-console
-    console.error(`unmergeCell: the ${removedCells} is not a MergedCell`);
+    console.error(`[unmergeCell]: The ${removedCell} is not a MergedCell`);
     return;
   }
   const newMergedCellsInfo = removeUnmergedCellsInfo(
-    removedCells,
+    removedCell,
     sheet.options?.mergedCellsInfo,
   );
   if (newMergedCellsInfo?.length !== sheet.options?.mergedCellsInfo?.length) {
     sheet.setOptions({
       mergedCellsInfo: newMergedCellsInfo,
     });
-    removedCells.remove(true);
+    removedCell.remove(true);
   }
 };
 
@@ -335,7 +359,7 @@ export const mergeTempMergedCell = (
  * @param oldMergedCells
  * @constructor
  */
-export const MergedCellConvertTempMergedCells = (
+export const mergedCellConvertTempMergedCells = (
   oldMergedCells: MergedCell[],
 ) => {
   return map(oldMergedCells, (mergedCell) => {
@@ -397,7 +421,7 @@ export const updateMergedCells = (
     mergedCellsGroup.getChildren() as unknown as MergedCell[];
 
   const oldTempMergedCells: TempMergedCell[] =
-    MergedCellConvertTempMergedCells(oldMergedCells);
+    mergedCellConvertTempMergedCells(oldMergedCells);
 
   // compare oldTempMergedCells and allTempMergedCells, find remove MergedCells and add MergedCells
   const removeTempMergedCells = differenceTempMergedCells(
@@ -418,6 +442,6 @@ export const updateMergedCells = (
   });
   // add new MergedCells
   forEach(addTempMergedCells, ({ cells, viewMeta }) => {
-    mergedCellsGroup.add(new MergedCell(sheet, cells, viewMeta));
+    mergedCellsGroup.add(getMergedCellInstance(sheet, cells, viewMeta));
   });
 };

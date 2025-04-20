@@ -7,7 +7,8 @@
  */
 import * as mockDataConfig from 'tests/data/simple-data.json';
 import { getContainer } from 'tests/util/helpers';
-import type { S2Options } from '@/common/interface';
+import type { Group } from '@antv/g-canvas';
+import type { S2DataConfig, S2Options } from '@/common/interface';
 import { PivotSheet, SpreadSheet } from '@/sheet-type';
 
 const s2options: S2Options = {
@@ -25,9 +26,10 @@ const s2options: S2Options = {
   interaction: {
     linkFields: ['province'],
   },
+  hdAdapter: false,
 };
 
-const dataCfg = {
+const dataCfg: S2DataConfig = {
   ...mockDataConfig,
   fields: {
     rows: ['province', 'city'],
@@ -75,7 +77,9 @@ describe('Link Field Tests', () => {
 
   test('province row cell should use link field style', () => {
     // 浙江省对应 cell
-    const province = s2.facet.rowHeader.getChildByIndex(0);
+    const province = (
+      s2.facet.rowHeader.getChildByIndex(0) as Group
+    ).getChildByIndex(0);
     // @ts-ignore
     expect(province.textShape.attr('fill')).toEqual('red');
     // @ts-ignore
@@ -83,7 +87,9 @@ describe('Link Field Tests', () => {
   });
   test('city row cell should not use link field style', () => {
     // 义乌对应 cell
-    const city = s2.facet.rowHeader.getChildByIndex(1);
+    const city = (
+      s2.facet.rowHeader.getChildByIndex(0) as Group
+    ).getChildByIndex(1);
     // @ts-ignore
     expect(city.textShape.attr('fill')).not.toEqual('red');
     // @ts-ignore

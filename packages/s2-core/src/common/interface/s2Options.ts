@@ -4,6 +4,7 @@ import type {
   DataCellCallback,
   FrameCallback,
   MappingDataItemCallback,
+  MergedCellCallback,
   MergedCellInfo,
   Pagination,
   Style,
@@ -27,9 +28,14 @@ import type {
 } from './basic';
 import type { Conditions } from './condition';
 import type { InteractionOptions } from './interaction';
-import type { Tooltip } from './tooltip';
+import type { Tooltip, TooltipContentType } from './tooltip';
 
-export interface S2BasicOptions<T = Element | string> {
+export interface S2BasicOptions<
+  T = TooltipContentType,
+  P = Pagination,
+  Icon = Element | string,
+  Text = string,
+> {
   // canvas's width
   width?: number;
   // canvas's height
@@ -43,11 +49,11 @@ export interface S2BasicOptions<T = Element | string> {
   // total config
   totals?: Totals;
   // tooltip configs
-  tooltip?: Tooltip<T>;
+  tooltip?: Tooltip<T, Icon, Text>;
   // interaction configs
   interaction?: InteractionOptions;
   // pagination config
-  pagination?: Pagination;
+  pagination?: P;
   // freeze row header
   frozenRowHeader?: boolean;
   // show series Number
@@ -82,6 +88,8 @@ export interface S2BasicOptions<T = Element | string> {
   rowCell?: CellCallback<RowHeaderConfig>;
   // custom col cell
   colCell?: CellCallback<ColHeaderConfig>;
+  // custom merged cell
+  mergedCell?: MergedCellCallback;
   // custom frame
   frame?: FrameCallback;
   // custom corner header
@@ -116,11 +124,18 @@ export interface S2TableSheetOptions {
 }
 
 // Pivot sheet options
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface S2PivotSheetOptions {}
+export interface S2PivotSheetOptions {
+  // pivot sheet type: frozen head row, default false
+  // TODO: 2.0 版本统一在 frozen: { ... } 命名空间下
+  frozenFirstRow?: boolean;
+}
 
-export interface S2Options<T = Element | string>
-  extends S2BasicOptions<T>,
+export interface S2Options<
+  T = TooltipContentType,
+  P = Pagination,
+  Icon = Element | string,
+  Text = string,
+> extends S2BasicOptions<T, P, Icon, Text>,
     S2TableSheetOptions,
     S2PivotSheetOptions {
   // custom data set

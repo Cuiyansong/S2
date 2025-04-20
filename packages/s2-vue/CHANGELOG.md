@@ -1,3 +1,74 @@
+# [@antv/s2-vue-v1.7.1](https://github.com/antvis/S2/compare/@antv/s2-vue-v1.7.0...@antv/s2-vue-v1.7.1) (2024-04-19)
+
+
+### Bug Fixes
+
+* 修复分页配置无法透传 ([#2666](https://github.com/antvis/S2/issues/2666)) ([2d5aaa4](https://github.com/antvis/S2/commit/2d5aaa4c5e70f48d007e4fb0f3c75871cc4148f1))
+
+# [@antv/s2-vue-v1.7.0](https://github.com/antvis/S2/compare/@antv/s2-vue-v1.6.1...@antv/s2-vue-v1.7.0) (2024-04-12)
+
+
+### Features
+
+* canvas 支持挂载 s2 实例 ([#2645](https://github.com/antvis/S2/issues/2645)) ([ac8e133](https://github.com/antvis/S2/commit/ac8e13397b8d5f40fb1de9fc9b49aedbe47e86c0))
+
+# [@antv/s2-vue-v1.6.1](https://github.com/antvis/S2/compare/@antv/s2-vue-v1.6.0...@antv/s2-vue-v1.6.1) (2024-01-26)
+
+
+### Bug Fixes
+
+* **interaction:** 修复隐藏列头配置更新时未覆盖上一次的配置 close [#2495](https://github.com/antvis/S2/issues/2495) ([#2527](https://github.com/antvis/S2/issues/2527)) ([d68adcc](https://github.com/antvis/S2/commit/d68adcc7219d43da3f336c0cac5f538e7d83de01))
+
+# [@antv/s2-vue-v1.6.0](https://github.com/antvis/S2/compare/@antv/s2-vue-v1.5.0...@antv/s2-vue-v1.6.0) (2023-12-15)
+
+
+### Features
+
+* **perf:** 优化 dataset 数据结构转化，以及交互过程中 layout性能 ([#2476](https://github.com/antvis/S2/issues/2476)) ([6fa8fbb](https://github.com/antvis/S2/commit/6fa8fbb054dc1dd9964b33a5ac8ec0d7fbee723e))
+
+# [@antv/s2-vue-v1.5.0](https://github.com/antvis/S2/compare/@antv/s2-vue-v1.4.0...@antv/s2-vue-v1.5.0) (2022-12-09)
+
+
+### Bug Fixes
+
+* **tooltip:** 修复自定义操作菜单传入自定义 ReactNode 不显示 ([#1969](https://github.com/antvis/S2/issues/1969)) ([3eff993](https://github.com/antvis/S2/commit/3eff9932438cc95093686c03510b57648ff44391))
+
+
+### Features
+
+* 暴露afterRealCellRender，这样能够更灵活的使用datacell ([#1970](https://github.com/antvis/S2/issues/1970)) ([66c5ab9](https://github.com/antvis/S2/commit/66c5ab9992c51b475be8acaf9a198d49f3114a49))
+
+# [@antv/s2-vue-v1.4.0](https://github.com/antvis/S2/compare/@antv/s2-vue-v1.3.0...@antv/s2-vue-v1.4.0) (2022-10-24)
+
+
+### Features
+
+* 组件层新增 onMounted 事件 ([#1830](https://github.com/antvis/S2/issues/1830)) ([0758160](https://github.com/antvis/S2/commit/0758160833c6be06c96dc851cab4605dd709e8ad))
+
+
+### Reverts
+
+* Revert "chore(release): 🔖@antv/s2@1.32.0 @antv/s2-react@1.29.0 @antv/s2-vue@1…" (#1846) ([7b0bcea](https://github.com/antvis/S2/commit/7b0bceab42acf8dae4a437f86148207848502c8b)), closes [#1846](https://github.com/antvis/S2/issues/1846) [#1844](https://github.com/antvis/S2/issues/1844)
+
+# [@antv/s2-vue-v1.3.0](https://github.com/antvis/S2/compare/@antv/s2-vue-v1.2.2...@antv/s2-vue-v1.3.0) (2022-09-05)
+
+
+### Bug Fixes
+
+* **types:** 修复严格模式下 S2Options 类型报错 ([#1723](https://github.com/antvis/S2/issues/1723)) ([ef55f55](https://github.com/antvis/S2/commit/ef55f559f940614b19f76fbc5c941e114f220461))
+
+
+### Features
+
+* 导出组件层CustomTooltip类 ([#1726](https://github.com/antvis/S2/issues/1726)) ([46270ab](https://github.com/antvis/S2/commit/46270ab0ae6e42cf92dcf77c0a35a70e07b9b10c))
+
+# [@antv/s2-vue-v1.2.2](https://github.com/antvis/S2/compare/@antv/s2-vue-v1.2.1...@antv/s2-vue-v1.2.2) (2022-08-29)
+
+
+### Bug Fixes
+
+* **pagination:** 透传组件分页参数 & 修复国际化不生效 close [#1697](https://github.com/antvis/S2/issues/1697) ([#1698](https://github.com/antvis/S2/issues/1698)) ([be334fc](https://github.com/antvis/S2/commit/be334fcef6a11d08358f007eba805cbd380560d5))
+
 # [@antv/s2-vue-v1.2.1](https://github.com/antvis/S2/compare/@antv/s2-vue-v1.2.0...@antv/s2-vue-v1.2.1) (2022-08-05)
 
 

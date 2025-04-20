@@ -5,6 +5,7 @@ import {
   type MultiData,
   type SimpleDataItem,
   type ViewMeta,
+  isUnchangedValue,
 } from '@antv/s2';
 import cls from 'classnames';
 import { first, get, isEmpty, isFunction, isNil } from 'lodash';
@@ -18,6 +19,8 @@ import './index.less';
 export const StrategySheetDataTooltip: React.FC<CustomTooltipProps> = ({
   cell,
   label,
+  showOriginalValue: showOriginalValueFromTooltip,
+  renderDerivedValue,
 }) => {
   const meta = cell.getMeta() as ViewMeta;
   const metaFieldValue = meta?.fieldValue as MultiData<SimpleDataItem[][]>;
@@ -36,14 +39,19 @@ export const StrategySheetDataTooltip: React.FC<CustomTooltipProps> = ({
     }
   }, [leftColNode?.value]);
 
+  const { placeholder, style } = meta.spreadsheet.options;
+  const valuesCfg = style.cellCfg?.valuesCfg;
+
   const [value, ...derivedValues] = first(metaFieldValue?.values) || [
     metaFieldValue,
   ];
+  const [originalValue, ...derivedOriginalValues] = first(
+    get(metaFieldValue, valuesCfg?.originalValueField) as SimpleDataItem[][],
+  ) || [value];
 
-  const { placeholder, style } = meta.spreadsheet.options;
   const emptyPlaceholder = getEmptyPlaceholder(meta, placeholder);
-  const valuesCfg = style.cellCfg?.valuesCfg;
-  const originalValue = get(metaFieldValue, valuesCfg?.originalValueField);
+  const showOriginalValue =
+    valuesCfg?.showOriginalValue || showOriginalValueFromTooltip;
 
   return (
     <div className={cls(tooltipCls(), tooltipCls('data'))}>
@@ -51,19 +59,26 @@ export const StrategySheetDataTooltip: React.FC<CustomTooltipProps> = ({
         <span className={'header-label'}>{rowName}</span>
         <span>{value ?? emptyPlaceholder}</span>
       </div>
-      <div className={tooltipCls('original-value')}>
-        {isNil(originalValue?.[0]?.[0])
-          ? emptyPlaceholder
-          : originalValue?.[0]?.[0]}
-      </div>
+      {showOriginalValue && (
+        <div className={tooltipCls('original-value')}>
+          {isNil(originalValue) ? emptyPlaceholder : originalValue}
+        </div>
+      )}
       {!isEmpty(derivedValues) && (
         <>
           <div className={tooltipCls('divider')} />
           <ul className={tooltipCls('derived-values')}>
-            {derivedValues.map((derivedValue, i) => {
-              const isNormal = isNil(derivedValue) || derivedValue === '';
-              const isUp = isUpDataValue(derivedValue as string);
-              const isDown = !isNormal && !isUp;
+            {derivedValues.map((derivedValue: SimpleDataItem, i) => {
+              const isUnchanged = isUnchangedValue(
+                derivedValue,
+                value as SimpleDataItem,
+              );
+              const isUp =
+                !isUnchanged && isUpDataValue(derivedValue as string);
+              const isDown = !isUnchanged && !isUp;
+              const originalDerivedValue = derivedOriginalValues[
+                i
+              ] as SimpleDataItem;
 
               return (
                 <li className="derived-value-item" key={i}>
@@ -76,12 +91,18 @@ export const StrategySheetDataTooltip: React.FC<CustomTooltipProps> = ({
                       'derived-value-trend-down': isDown,
                     })}
                   >
-                    {!isNormal && (
+                    {!isUnchanged && (
                       <span className="derived-value-trend-icon"></span>
                     )}
-                    <span className="derived-value-content">
-                      {derivedValue ?? emptyPlaceholder}
-                    </span>
+                    {renderDerivedValue?.(
+                      derivedValue,
+                      originalDerivedValue,
+                      cell,
+                    ) ?? (
+                      <span className="derived-value-content">
+                        {derivedValue ?? emptyPlaceholder}
+                      </span>
+                    )}
                   </span>
                 </li>
               );
@@ -91,9 +112,18 @@ export const StrategySheetDataTooltip: React.FC<CustomTooltipProps> = ({
       )}
       {rowDescription && (
         <div className={tooltipCls('description')}>
-          {i18n('说明')}: {rowDescription}
+          <span className={tooltipCls('description-label')}>
+            {i18n('说明')}
+          </span>
+          <span className={tooltipCls('description-text')}>
+            {rowDescription}
+          </span>
         </div>
       )}
     </div>
   );
+};
+
+StrategySheetDataTooltip.defaultProps = {
+  showOriginalValue: false,
 };

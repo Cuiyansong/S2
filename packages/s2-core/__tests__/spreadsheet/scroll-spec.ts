@@ -1,7 +1,9 @@
+/* eslint-disable jest/expect-expect */
 /* eslint-disable jest/no-conditional-expect */
 import * as mockDataConfig from 'tests/data/simple-data.json';
 import { createMockCellInfo, getContainer, sleep } from 'tests/util/helpers';
-import { ScrollType } from '../../src/ui/scrollbar';
+import { cloneDeep } from 'lodash';
+import { ScrollBar, ScrollType } from '../../src/ui/scrollbar';
 import type { CellScrollPosition } from './../../src/common/interface/scroll';
 import { PivotSheet, SpreadSheet } from '@/sheet-type';
 import type {
@@ -114,7 +116,9 @@ describe('Scroll Tests', () => {
   test('should not trigger scroll if not scroll over the viewport', () => {
     const expectScroll = getScrollExpect();
 
-    canvas.dispatchEvent(new WheelEvent('wheel', { deltaX: 20, deltaY: 20 }));
+    canvas.dispatchEvent(
+      new WheelEvent('wheel', { deltaX: 0, deltaY: 20, shiftKey: true }),
+    );
 
     expect(s2.interaction.hasIntercepts([InterceptType.HOVER])).toBeFalsy();
     expectScroll();
@@ -136,6 +140,7 @@ describe('Scroll Tests', () => {
 
   test('should scroll if scroll over the row cell', async () => {
     const position: CellScrollPosition = {
+      rowHeaderScrollX: 0,
       scrollX: 20,
       scrollY: 0,
     };
@@ -387,6 +392,77 @@ describe('Scroll Tests', () => {
     },
   );
 
+  // https://github.com/antvis/S2/issues/2222
+  test.each([
+    {
+      type: 'horizontal',
+      offset: {
+        scrollX: 20,
+        scrollY: 0,
+      },
+    },
+    {
+      type: 'vertical',
+      offset: {
+        scrollX: 0,
+        scrollY: 20,
+      },
+    },
+  ])(
+    'should trigger hover cells when hover cells after scroll by %o',
+    async ({ offset }) => {
+      s2.setOptions({
+        interaction: {
+          hoverAfterScroll: true,
+        },
+      });
+
+      s2.facet.cornerBBox.maxY = -9999;
+      s2.facet.panelBBox.minX = -9999;
+      s2.facet.panelBBox.minY = -9999;
+
+      const bbox = s2.getCanvasElement().getBoundingClientRect();
+      const mousemoveEvent = new MouseEvent('mousemove', {
+        clientX: bbox.left + 100,
+        clientY: bbox.top + 100,
+      });
+
+      canvas.dispatchEvent(mousemoveEvent);
+
+      s2.container.emit = jest.fn();
+
+      const wheelEvent = new WheelEvent('wheel', {
+        deltaX: offset.scrollX,
+        deltaY: offset.scrollY,
+      });
+
+      canvas.dispatchEvent(wheelEvent);
+
+      // wait requestAnimationFrame and debounce
+      await sleep(1000);
+
+      expect(s2.container.emit).toHaveBeenCalledWith(
+        OriginEventType.MOUSE_MOVE,
+        expect.any(Object),
+      );
+    },
+  );
+
+  test('should not trigger scroll event on passive renders', () => {
+    const sheet = new PivotSheet(getContainer(), mockDataConfig, {
+      ...s2Options,
+    });
+    sheet.render();
+
+    jest.spyOn(sheet.facet as any, 'dynamicRenderCell');
+    jest.spyOn(sheet.facet as any, 'emitScrollEvent');
+
+    sheet.facet.startScroll(true);
+
+    expect((sheet.facet as any).dynamicRenderCell).toHaveBeenCalledWith(true);
+    expect((sheet.facet as any).emitScrollEvent).not.toBeCalled();
+  });
+
   test('should render correct scroll position', () => {
     s2.setOptions({
       interaction: {
@@ -404,7 +480,7 @@ describe('Scroll Tests', () => {
 
     s2.changeSheetSize(1000, 150); // 纵向滚动条
     s2.render(false);
-    expect(s2.facet.vScrollBar.getCanvasBBox().x).toBe(185);
+    expect(s2.facet.vScrollBar.getCanvasBBox().x).toBe(190);
 
     s2.setOptions({
       interaction: {
@@ -618,6 +694,76 @@ describe('Scroll Tests', () => {
       ).toBeFalsy();
     });
 
+    test('should scroll horizontally when shift key is held on Windows', async () => {
+      s2.setOptions({
+        frozenRowHeader: true,
+        style: {
+          layoutWidthType: 'compact',
+          rowCfg: {
+            width: 200,
+          },
+        },
+      });
+
+      const onScroll = jest.fn((...args) => {
+        expect(args[0].rowHeaderScrollX).toBeGreaterThan(0);
+        expect(args[0].scrollX).toBe(0);
+        expect(args[0].scrollY).toBe(0);
+      });
+
+      s2.changeSheetSize(400, 300);
+      s2.render(false);
+
+      jest
+        .spyOn(s2.facet, 'isScrollOverTheCornerArea')
+        .mockImplementationOnce(() => true);
+      jest
+        .spyOn(s2.facet, 'isScrollOverTheViewport')
+        .mockImplementationOnce(() => true);
+
+      s2.on(S2Event.GLOBAL_SCROLL, onScroll);
+
+      const wheelEvent = new WheelEvent('wheel', {
+        deltaX: 0,
+        deltaY: 20,
+        shiftKey: true,
+      });
+
+      Object.defineProperty(window.navigator, 'userAgent', {
+        value: 'Windows',
+        configurable: true,
+        writable: true,
+      });
+
+      canvas.dispatchEvent(wheelEvent);
+      await sleep(200);
+      expect(onScroll).toHaveBeenCalled();
+    });
+
+    test('should not scroll horizontally when shift key is held on macOS', async () => {
+      const onScroll = jest.fn((...args) => {
+        expect(args[0].rowHeaderScrollX).toBeGreaterThan(0);
+        expect(args[0].scrollX).toBe(0);
+        expect(args[0].scrollY).toBe(0);
+      });
+
+      const wheelEvent = new WheelEvent('wheel', {
+        deltaX: 0,
+        deltaY: 20,
+        shiftKey: true,
+      });
+
+      Object.defineProperty(window.navigator, 'userAgent', {
+        value: 'Mac OS',
+        configurable: true,
+        writable: true,
+      });
+
+      canvas.dispatchEvent(wheelEvent);
+      await sleep(200);
+      expect(onScroll).not.toHaveBeenCalled();
+    });
+
     it('should not change init body overscrollBehavior style when render and destroyed', () => {
       document.body.style.overscrollBehavior = 'none';
 
@@ -660,5 +806,154 @@ describe('Scroll Tests', () => {
         expect(document.body.style.overscrollBehavior).toBeFalsy();
       },
     );
+  });
+
+  // https://github.com/antvis/S2/issues/1784
+  test('should not throw error if scroll over the data cell area and not exist scroll bar', async () => {
+    // rowCell 显示滚动条, dataCell 无滚动条, 然后在 dataCell 区域滚动
+    s2.setOptions({
+      style: {
+        rowCfg: {
+          width: 200,
+        },
+        cellCfg: {
+          width: 30,
+        },
+      },
+    });
+
+    s2.render(false);
+
+    const errorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementationOnce(() => {});
+
+    // dataCell 区域滚动
+    const wheelEvent = new WheelEvent('wheel', {
+      deltaX: 20,
+      deltaY: 0,
+      clientX: 225,
+      clientY: 1019,
+    });
+
+    canvas.dispatchEvent(wheelEvent);
+
+    await sleep(500);
+
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  // https://github.com/antvis/S2/issues/2316
+  test('should not throw infinite error if spreadsheet is unmounted during scrolling', async () => {
+    s2.setOptions({
+      style: {
+        rowCfg: {
+          width: 200,
+        },
+        cellCfg: {
+          width: 30,
+        },
+      },
+    });
+
+    s2.render(false);
+
+    const errorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementationOnce(() => {});
+
+    // 滚动时 unmount 表格实例
+    s2.facet.scrollWithAnimation(
+      {
+        offsetX: {
+          value: 10,
+          animate: true,
+        },
+        offsetY: {
+          value: 10,
+          animate: true,
+        },
+      },
+      200,
+    );
+    s2.destroy();
+
+    await sleep(500);
+
+    expect(errorSpy).toBeCalledTimes(1);
+  });
+
+  // https://github.com/antvis/S2/issues/2376
+  test.each(['hScrollBar', 'hRowScrollBar'])(
+    'should not reset interaction state after %s scrollbar thumb or track clicked',
+    (scrollbarName) => {
+      const containsMock = jest
+        .spyOn(HTMLElement.prototype, 'contains')
+        .mockImplementation(() => true);
+
+      const reset = jest.fn();
+
+      const scrollbar = s2.facet[scrollbarName] as ScrollBar;
+      const colCell = s2.getColumnLeafNodes()[0].belongsCell;
+
+      s2.on(S2Event.GLOBAL_RESET, reset);
+      s2.interaction.selectHeaderCell({
+        cell: colCell,
+      });
+
+      expect(s2.interaction.isSelectedState()).toBeTruthy();
+
+      const { maxX, maxY } = s2.facet?.panelBBox || {};
+      const { x, y } = canvas.getBoundingClientRect() || {};
+
+      // 滚动条
+      window.dispatchEvent(
+        new MouseEvent('click', {
+          clientX: x + scrollbar.position.x,
+          // 在滚动条内点击
+          clientY: y + scrollbar.position.y + scrollbar.theme.size! - 2,
+        } as MouseEventInit),
+      );
+
+      // 滑动轨道
+      window.dispatchEvent(
+        new MouseEvent('click', {
+          // 右下角滑道点击
+          clientX: x + maxX - 2,
+          clientY: y + maxY + 2,
+        } as MouseEventInit),
+      );
+
+      expect(s2.interaction.isSelectedState()).toBeTruthy();
+      expect(reset).not.toHaveBeenCalled();
+
+      containsMock.mockReset();
+    },
+  );
+
+  test('should not trigger scroll event when first rendered', () => {
+    const expectScroll = getScrollExpect();
+
+    expectScroll();
+  });
+
+  test('should not trigger scroll event when options changed', () => {
+    const expectScroll = getScrollExpect();
+
+    s2.setOptions({
+      hierarchyType: 'tree',
+    });
+    s2.render();
+
+    expectScroll();
+  });
+
+  test('should not trigger scroll event when data config changed', () => {
+    const expectScroll = getScrollExpect();
+
+    s2.setDataCfg(cloneDeep(mockDataConfig));
+    s2.render();
+
+    expectScroll();
   });
 });

@@ -1,5 +1,9 @@
-import { every, filter, get, isUndefined, keys, reduce } from 'lodash';
-import type { Data, Fields, Totals, TotalsStatus } from '../common/interface';
+import { isArray, flattenDeep } from 'lodash';
+import {
+  EMPTY_EXTRA_FIELD_PLACEHOLDER,
+  TOTAL_VALUE,
+} from '../common/constant/field';
+import type { CalcTotals, Totals, TotalsStatus } from '../common/interface';
 
 export const getListBySorted = (
   list: string[],
@@ -27,70 +31,19 @@ export const getListBySorted = (
   });
 };
 
-export const filterUndefined = (values: string[]) => {
-  return filter(values, (t) => !isUndefined(t) && t !== 'undefined');
+export const filterOutDetail = (values: string[] = []) => {
+  return values.filter(
+    (v) => v !== TOTAL_VALUE && v !== EMPTY_EXTRA_FIELD_PLACEHOLDER,
+  );
 };
 
-export const flattenDeep = (data: Record<any, any>[] | Record<any, any>) =>
-  keys(data)?.reduce((pre, next) => {
-    const item = get(data, next);
-    if (Array.isArray(item)) {
-      pre = pre.concat(flattenDeep(item));
-    } else {
-      pre?.push(item);
-    }
-
-    return pre;
-  }, []);
-
-export const flatten = (data: Record<any, any>[] | Record<any, any>) => {
-  const result = [];
-
-  if (Array.isArray(data)) {
-    // 总计小计在数组里面，以 undefine作为key, 直接forEach的话会漏掉总计小计
-    const containsTotal = 'undefined' in data;
-    const itemLength = data.length + (containsTotal ? 1 : 0);
-
-    let i = 0;
-    while (i < itemLength) {
-      // eslint-disable-next-line dot-notation
-      const current = i === data.length ? data['undefined'] : data[i];
-      i++;
-
-      if (current && 'undefined' in current) {
-        keys(current).forEach((ki) => {
-          result.push(current[ki]);
-        });
-      } else if (Array.isArray(current)) {
-        result.push(...current);
-      } else {
-        result.push(current);
-      }
-    }
-  } else {
-    result.push(data);
-  }
-  return result;
-};
-
-export const isEveryUndefined = (data: string[] | undefined[]) => {
-  return data?.every((item) => isUndefined(item));
-};
-
-export const getFieldKeysByDimensionValues = (
-  dimensionValues: string[] | undefined[],
-  dimensions: string[] | undefined[],
+export const customFlattenDeep = (
+  data: Record<any, any>[] | Record<any, any>,
 ) => {
-  const result = [];
-  dimensionValues?.forEach((item, index) => {
-    if (item === undefined) {
-      if (dimensions[index]) {
-        result.push(dimensions[index]);
-      }
-    }
-  });
-
-  return result;
+  if (!isArray(data)) {
+    return [data];
+  }
+  return flattenDeep(data);
 };
 
 /**
@@ -100,34 +53,6 @@ export const getFieldKeysByDimensionValues = (
 export const sortByItems = (arr1: string[], arr2: string[]) => {
   return arr1?.filter((item) => !arr2?.includes(item))?.concat(arr2);
 };
-
-/**
- * 判断是普通单元格数据还是总计或小计
- * @param ids
- * @param data
- * @returns
- */
-export const isTotalData = (ids: string[], data: Data): boolean => {
-  return !every(ids, (id) => data[id]);
-};
-
-/**
- * split total data from origin list data.
- */
-export function splitTotal(rawData: Data[], fields: Fields): Data[] {
-  const { rows, columns } = fields;
-
-  return reduce(
-    rawData,
-    (result: Data[], data: Data) => {
-      if (isTotalData([].concat(rows).concat(columns), data)) {
-        result.push(data);
-      }
-      return result;
-    },
-    [],
-  );
-}
 
 export function getAggregationAndCalcFuncByQuery(
   totalsStatus: TotalsStatus,
@@ -143,11 +68,9 @@ export function getAggregationAndCalcFuncByQuery(
     calcTotals: colCalcTotals = {},
     calcSubTotals: colCalcSubTotals = {},
   } = col || {};
-  const getCalcTotals = (dimensionTotals, totalType) => {
-    if (
-      (dimensionTotals.aggregation || dimensionTotals.calcFunc) &&
-      totalType
-    ) {
+
+  const getCalcTotals = (dimensionTotals: CalcTotals, isTotal: boolean) => {
+    if ((dimensionTotals.aggregation || dimensionTotals.calcFunc) && isTotal) {
       return {
         aggregation: dimensionTotals.aggregation,
         calcFunc: dimensionTotals.calcFunc,

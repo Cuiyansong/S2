@@ -313,7 +313,26 @@ export const useEvents = (
     useS2Event(s2Ref, emit, S2Event.GLOBAL_MOUSE_UP, 'mouseUp');
     useS2Event(s2Ref, emit, S2Event.GLOBAL_RESET, 'reset');
     useS2Event(s2Ref, emit, S2Event.GLOBAL_LINK_FIELD_JUMP, 'linkFieldJump');
-
     useS2Event(s2Ref, emit, S2Event.GLOBAL_SCROLL, 'scroll');
+
+    // ============== Auto 自动生成的 ================
+    useS2Event(
+      s2Ref,
+      emit,
+      S2Event.LAYOUT_AFTER_REAL_DATA_CELL_RENDER,
+      'layoutAfterRealDataCellRender',
+    );
+    useS2Event(
+      s2Ref,
+      emit,
+      S2Event.ROW_CELL_BRUSH_SELECTION,
+      'rowCellBrushSelection',
+    );
+    useS2Event(
+      s2Ref,
+      emit,
+      S2Event.COL_CELL_BRUSH_SELECTION,
+      'colCellBrushSelection',
+    );
   });
 };

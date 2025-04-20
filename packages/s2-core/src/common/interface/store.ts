@@ -3,6 +3,7 @@ import type {
   InteractionOptions,
   InteractionStateInfo,
   S2CellType,
+  SortMethod,
   SortParam,
   ViewMeta,
 } from '../interface';
@@ -49,7 +50,7 @@ export interface StoreKey {
   // vertical scroll bar scroll y offset
   scrollY: number;
   // row header scroll bar scroll x offset
-  hRowScrollX: number;
+  rowHeaderScrollX: number;
   // column cell click sort params
   sortParam: SortParam;
   // 下钻节点id和对应生成的 path寻址路径
@@ -63,7 +64,7 @@ export interface StoreKey {
   // interaction state
   interactionStateInfo: InteractionStateInfo;
 
-  originalDataCfg: S2DataConfig;
+  originalDataCfg: Partial<S2DataConfig>;
 
   panelBBox: BBox;
   // resize area group
@@ -88,5 +89,9 @@ export interface StoreKey {
   // last click cell
   lastClickedCell: S2CellType<ViewMeta>;
   initOverscrollBehavior: InteractionOptions['overscrollBehavior'];
+
+  // 排序方式
+  sortMethodMap: Record<string, SortMethod>;
+
   [key: string]: unknown;
 }

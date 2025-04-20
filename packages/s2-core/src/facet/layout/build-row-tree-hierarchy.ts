@@ -1,7 +1,7 @@
-import { i18n, ID_SEPARATOR, ROOT_ID } from '../../common';
-import type { PivotDataSet } from '../../data-set';
+import { isEmpty, isNumber } from 'lodash';
+import { i18n, TOTAL_VALUE } from '../../common';
 import type { SpreadSheet } from '../../sheet-type';
-import { filterUndefined, getListBySorted } from '../../utils/data-set-operate';
+import { filterOutDetail } from '../../utils/data-set-operate';
 import { generateId } from '../../utils/layout/generate-id';
 import type { FieldValue, TreeHeaderParams } from '../layout/interface';
 import { layoutArrange, layoutHierarchy } from '../layout/layout-hooks';
@@ -19,11 +19,15 @@ const addTotals = (
   // TODO valueInCol = false and one or more values
   if (totalsConfig.showGrandTotals) {
     const func = totalsConfig.reverseLayout ? 'unshift' : 'push';
-    fieldValues[func](new TotalClass(totalsConfig.label, false, true));
+    fieldValues[func](
+      new TotalClass({
+        label: totalsConfig.label,
+        isSubTotals: false,
+        isGrandTotals: true,
+      }),
+    );
   }
 };
-
-const NODE_ID_PREFIX_LEN = (ROOT_ID + ID_SEPARATOR).length;
 
 /**
  * Only row header has tree hierarchy, in this scene:
@@ -34,26 +38,12 @@ const NODE_ID_PREFIX_LEN = (ROOT_ID + ID_SEPARATOR).length;
 export const buildRowTreeHierarchy = (params: TreeHeaderParams) => {
   const { parentNode, currentField, level, facetCfg, hierarchy, pivotMeta } =
     params;
-  const { spreadsheet, dataSet, collapsedRows, hierarchyCollapse } = facetCfg;
+  const { spreadsheet, collapsedRows, hierarchyCollapse, rowExpandDepth } =
+    facetCfg;
   const { query, id: parentId } = parentNode;
   const isDrillDownItem = spreadsheet.dataCfg.fields.rows?.length <= level;
-  const sortedDimensionValues =
-    (dataSet as PivotDataSet)?.sortedDimensionValues?.[currentField] || [];
 
-  const unsortedDimValues = filterUndefined(Array.from(pivotMeta.keys()));
-  const dimValues = getListBySorted(
-    unsortedDimValues,
-    sortedDimensionValues,
-    (dimVal) => {
-      // 根据父节点 id，修改 unsortedDimValues 里用于比较的值，使其格式与 sortedDimensionValues 排序值一致
-      // unsortedDimValues：['成都', '绵阳']
-      // sortedDimensionValues: ['四川[&]成都']
-      if (ROOT_ID === parentId) {
-        return dimVal;
-      }
-      return generateId(parentId, dimVal).slice(NODE_ID_PREFIX_LEN);
-    },
-  );
+  const dimValues = filterOutDetail(Array.from(pivotMeta.keys()));
 
   let fieldValues: FieldValue[] = layoutArrange(
     dimValues,
@@ -95,8 +85,17 @@ export const buildRowTreeHierarchy = (params: TreeHeaderParams) => {
       };
     }
     const uniqueId = generateId(parentId, value);
+
+    // 行头收起/展开配置优先级:collapseRows -> rowExpandDepth -> hierarchyCollapse
+    // 优先从读取 collapseRows 中的特定 node 的值
+    // 如果没有特定配置，再查看是否配置了层级展开配置，
+    // 最后再降级到 hierarchyCollapse 中
     const isCollapsedRow = collapsedRows?.[uniqueId];
-    const isCollapse = isCollapsedRow ?? hierarchyCollapse;
+    // 如果 level 大于 rowExpandDepth或者没有配置层级展开配置时，返回null，保证能正确降级到 hierarchyCollapse
+    const isLevelCollapsed = isNumber(rowExpandDepth)
+      ? level > rowExpandDepth
+      : null;
+    const isCollapse = isCollapsedRow ?? isLevelCollapsed ?? hierarchyCollapse;
 
     const node = new Node({
       id: uniqueId,
@@ -119,11 +118,18 @@ export const buildRowTreeHierarchy = (params: TreeHeaderParams) => {
       hierarchy.maxLevel = level;
     }
 
-    const emptyChildren = !pivotMetaValue?.children?.size;
-    if (emptyChildren || isTotals) {
+    /**
+     * 除了虚拟行小计节点外, 如果为空, 说明当前分组只有一条数据, 应该标记为叶子节点.
+     * https://github.com/antvis/S2/issues/2804
+     */
+    const children = [...(pivotMetaValue?.children?.keys() || [])].filter(
+      (child) => child !== TOTAL_VALUE,
+    );
+    const isEmptyChildren = isEmpty(children);
+    if (isEmptyChildren || isTotals) {
       node.isLeaf = true;
     }
-    if (!emptyChildren) {
+    if (!isEmptyChildren) {
       node.isTotals = true;
     }
 
@@ -134,7 +140,7 @@ export const buildRowTreeHierarchy = (params: TreeHeaderParams) => {
       hierarchy,
     );
 
-    if (!emptyChildren && !isCollapse && !isTotals && expandCurrentNode) {
+    if (!isEmptyChildren && !isCollapse && !isTotals && expandCurrentNode) {
       buildRowTreeHierarchy({
         level: level + 1,
         currentField: pivotMetaValue.childField,

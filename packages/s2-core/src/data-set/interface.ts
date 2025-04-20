@@ -1,14 +1,22 @@
+import type { QueryDataType } from '../common/constant/query';
 import type { SortParam } from '../common/interface';
 import type { Node } from '../facet/layout/node';
 import type { BaseDataSet } from './base-data-set';
+
 // TODO add object data value
 export type DataType = Record<string, any>;
 
+export type Query = Record<string, any>;
+
 export type PivotMetaValue = {
-  // field level index
+  // 当前维度结合父级维度生成的完整 id 信息
+  id: string;
+  // 当前维度结合父级维度生成的完整 dimensions 信息，主要是预防 field 数据本身出现 [&] 导致维度信息识别不正确
+  dimensions: string[];
+  // 当前维度
+  value: string;
   level: number;
   children: PivotMeta;
-  // field name
   childField?: string;
 };
 
@@ -19,34 +27,49 @@ export type SortedDimensionValues = Record<string, string[]>;
 export type DataPathParams = {
   rowDimensionValues: string[];
   colDimensionValues: string[];
+  rowPivotMeta: PivotMeta;
+  colPivotMeta: PivotMeta;
+  rowFields: string[];
+  colFields: string[];
   // first create data path
   isFirstCreate?: boolean;
   // callback when pivot map create node
   onFirstCreate?: (params: {
-    // 是否是行头字段
-    isRow: boolean;
+    careRepeated?: boolean;
     // 维度 id，如 city
     dimension: string;
-    // 维度数组 ['四川省', '成都市']
-    dimensionPath: string[];
+    // 完整维度信息：'四川省[&]成都市'
+    dimensionPath: string;
   }) => void;
-  // use for multiple data queries（path contains undefined）
-  careUndefined?: boolean;
-  // use in row tree mode to append fields information
-  rowFields?: string[];
-  colFields?: string[];
-  rowPivotMeta?: PivotMeta;
-  colPivotMeta?: PivotMeta;
+  prefix?: string;
 };
 
 export interface CellDataParams {
   // search query
-  query: DataType;
+  query: Query;
   isTotals?: boolean;
   // use in part drill-down
   rowNode?: Node;
   // mark row's cell
   isRow?: boolean;
+  // use with isTotals
+  totalStatus?: TotalStatus;
+}
+
+export interface CheckAccordQueryParams {
+  // item of sortedDimensionValues,es: "浙江省[&]杭州市[&]家具[&]桌子"
+  dimensionValues: string;
+  query: Query;
+  // rows or columns
+  dimensions: string[];
+  field: string;
+}
+
+export interface TotalStatus {
+  isRowTotal: boolean;
+  isRowSubTotal: boolean;
+  isColTotal: boolean;
+  isColSubTotal: boolean;
 }
 
 export interface SortActionParams {
@@ -57,3 +80,17 @@ export interface SortActionParams {
   sortByValues?: string[];
   isSortByMeasure?: boolean;
 }
+
+export interface SortPivotMetaParams {
+  pivotMeta: PivotMeta;
+  dimensions: string[];
+  sortedDimensionValues: string[];
+  sortFieldId: string;
+}
+
+export interface MultiDataParams {
+  drillDownFields?: string[];
+  queryType?: QueryDataType;
+}
+
+export type FlattingIndexesData = DataType[][] | DataType[] | DataType;

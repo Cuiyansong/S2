@@ -1,9 +1,9 @@
-import { getContainer } from 'tests/util/helpers';
 import type { Event as GEvent } from '@antv/g-canvas';
 import * as dataCfg from 'tests/data/simple-table-data.json';
-import { TableSheet } from '@/sheet-type';
-import { setLang, type LangType, type S2Options } from '@/common';
+import { getContainer } from 'tests/util/helpers';
+import { S2Event, setLang, type LangType, type S2Options } from '@/common';
 import { Node } from '@/facet/layout/node';
+import { TableSheet } from '@/sheet-type';
 
 describe('TableSheet Tests', () => {
   let s2: TableSheet;
@@ -21,13 +21,14 @@ describe('TableSheet Tests', () => {
 
   let container: HTMLDivElement;
 
-  beforeAll(() => {
+  beforeEach(() => {
     container = getContainer();
     s2 = new TableSheet(container, dataCfg, s2Options);
     s2.render();
+    s2.store.set('sortMethodMap', null);
   });
 
-  afterAll(() => {
+  afterEach(() => {
     container?.remove();
     s2?.destroy();
   });
@@ -40,7 +41,11 @@ describe('TableSheet Tests', () => {
         .spyOn(s2, 'showTooltipWithInfo')
         .mockImplementation(() => {});
 
-      const nodeMeta = new Node({ id: '1', key: '1', value: 'testValue' });
+      const nodeMeta = new Node({
+        id: '1',
+        key: '1',
+        value: 'testValue',
+      });
 
       s2.handleGroupSort(
         {
@@ -48,15 +53,26 @@ describe('TableSheet Tests', () => {
         } as GEvent,
         nodeMeta,
       );
-      expect(showTooltipWithInfoSpy).toHaveBeenCalledTimes(1);
 
-      s2.onSortTooltipClick(
-        { key: 'asc' },
+      expect(showTooltipWithInfoSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        [],
         {
-          field: 'city',
+          operator: expect.anything(),
+          onlyMenu: true,
+          forceRender: true,
         },
       );
 
+      s2.onSortTooltipClick({ key: 'asc' }, {
+        id: 'city',
+        field: 'city',
+      } as Node);
+
+      expect(s2.store.get('sortMethodMap')).toEqual({
+        city: 'asc',
+      });
+      expect(s2.getMenuDefaultSelectedKeys('city')).toEqual(['asc']);
       expect(s2.dataCfg.sortParams).toEqual([
         {
           sortFieldId: 'city',
@@ -67,30 +83,28 @@ describe('TableSheet Tests', () => {
     });
 
     test('should update sort params', () => {
-      s2.onSortTooltipClick(
-        { key: 'desc' },
-        {
-          field: 'cost',
-        },
-      );
+      const node = {
+        id: 'cost',
+        field: 'cost',
+      } as Node;
 
+      s2.onSortTooltipClick({ key: 'desc' }, node);
+
+      expect(s2.store.get('sortMethodMap')).toEqual({
+        cost: 'desc',
+      });
+      expect(s2.getMenuDefaultSelectedKeys(node.id)).toEqual(['desc']);
       expect(s2.dataCfg.sortParams).toEqual([
-        {
-          sortFieldId: 'city',
-          sortMethod: 'asc',
-        },
         {
           sortFieldId: 'cost',
           sortMethod: 'desc',
         },
       ]);
 
-      s2.onSortTooltipClick(
-        { key: 'desc' },
-        {
-          field: 'city',
-        },
-      );
+      s2.onSortTooltipClick({ key: 'desc' }, {
+        id: 'city',
+        field: 'city',
+      } as Node);
 
       expect(s2.dataCfg.sortParams).toEqual([
         {
@@ -102,6 +116,11 @@ describe('TableSheet Tests', () => {
           sortMethod: 'desc',
         },
       ]);
+      expect(s2.store.get('sortMethodMap')).toEqual({
+        cost: 'desc',
+        city: 'desc',
+      });
+      expect(s2.getMenuDefaultSelectedKeys('city')).toEqual(['desc']);
 
       s2.setDataCfg({
         ...s2.dataCfg,
@@ -118,12 +137,10 @@ describe('TableSheet Tests', () => {
         ],
       });
 
-      s2.onSortTooltipClick(
-        { key: 'asc' },
-        {
-          field: 'cost',
-        },
-      );
+      s2.onSortTooltipClick({ key: 'asc' }, {
+        id: 'cost',
+        field: 'cost',
+      } as Node);
 
       expect(s2.dataCfg.sortParams).toEqual([
         {
@@ -136,10 +153,15 @@ describe('TableSheet Tests', () => {
           sortBy: ['1', '2'],
         },
       ]);
+      expect(s2.store.get('sortMethodMap')).toEqual({
+        cost: 'asc',
+        city: 'desc',
+      });
+      expect(s2.getMenuDefaultSelectedKeys('cost')).toEqual(['asc']);
     });
 
     // https://github.com/antvis/S2/issues/1421
-    test.each(['zh_CN', 'en_US'])(
+    test.each(['zh_CN', 'en_US', 'ru_RU'])(
       'should render group sort menu',
       (lang: LangType) => {
         setLang(lang);
@@ -158,14 +180,29 @@ describe('TableSheet Tests', () => {
         sheet.handleGroupSort(event, null);
 
         const isEnUS = lang === 'en_US';
-        const groupAscText = isEnUS ? 'ASC' : '升序';
-        const groupDescText = isEnUS ? 'DESC' : '降序';
-        const groupNoneText = isEnUS ? 'No order' : '不排序';
+        const isRu = lang === 'ru_RU';
+
+        let groupAscText = '升序';
+        let groupDescText = '降序';
+        let groupNoneText = '不排序';
+
+        if (isEnUS) {
+          groupAscText = 'ASC';
+          groupDescText = 'DESC';
+          groupNoneText = 'No order';
+        }
+
+        if (isRu) {
+          groupAscText = 'По возрастанию';
+          groupDescText = 'По убыванию';
+          groupNoneText = 'Не отсортировано';
+        }
 
         expect(showTooltipWithInfoSpy).toHaveBeenLastCalledWith(
           expect.anything(),
           expect.anything(),
           {
+            forceRender: true,
             onlyMenu: true,
             operator: {
               menus: [
@@ -174,11 +211,34 @@ describe('TableSheet Tests', () => {
                 { key: 'none', text: groupNoneText },
               ],
               onClick: expect.anything(),
+              defaultSelectedKeys: [],
             },
           },
         );
         sheet.destroy();
       },
     );
+  });
+
+  test('should emit destroy event', () => {
+    const onDestroy = jest.fn();
+    s2.on(S2Event.LAYOUT_DESTROY, onDestroy);
+
+    s2.destroy();
+
+    expect(onDestroy).toHaveBeenCalledTimes(1);
+  });
+
+  test('should get content height', () => {
+    expect(s2.getContentHeight()).toEqual(120);
+  });
+
+  test('get sheetInstance from canvas', () => {
+    const canvas = s2.getCanvasElement();
+    // eslint-disable-next-line no-underscore-dangle
+    expect((canvas as any).__s2_instance__).toEqual(s2);
+    s2.destroy();
+    // eslint-disable-next-line no-underscore-dangle
+    expect((canvas as any).__s2_instance__).toBe(undefined);
   });
 });

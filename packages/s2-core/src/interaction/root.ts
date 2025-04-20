@@ -1,16 +1,20 @@
 import type { IElement } from '@antv/g-canvas';
-import { concat, find, forEach, isEmpty, isNil, map } from 'lodash';
+import { concat, find, forEach, isBoolean, isEmpty, isNil, map } from 'lodash';
 import { ColCell, DataCell, MergedCell, RowCell } from '../cell';
 import {
   CellTypes,
+  INTERACTION_STATE_INFO_KEY,
   InteractionName,
   InteractionStateName,
-  INTERACTION_STATE_INFO_KEY,
   InterceptType,
   S2Event,
 } from '../common/constant';
 import type {
+  BrushSelection,
+  BrushSelectionInfo,
+  CellMeta,
   CustomInteraction,
+  InteractionCellHighlight,
   InteractionStateInfo,
   Intercept,
   MergedCellInfo,
@@ -35,12 +39,14 @@ import {
 } from './base-interaction/click';
 import { CornerCellClick } from './base-interaction/click/corner-cell-click';
 import { HoverEvent } from './base-interaction/hover';
+import { ColBrushSelection } from './brush-selection/col-brush-selection';
+import { DataCellBrushSelection } from './brush-selection/data-cell-brush-selection';
+import { RowBrushSelection } from './brush-selection/row-brush-selection';
+import { DataCellMultiSelection } from './data-cell-multi-selection';
 import { EventController } from './event-controller';
 import { RangeSelection } from './range-selection';
-import { SelectedCellMove } from './selected-cell-move';
-import { BrushSelection } from './brush-selection';
-import { DataCellMultiSelection } from './data-cell-multi-selection';
 import { RowColumnResize } from './row-column-resize';
+import { SelectedCellMove } from './selected-cell-move';
 
 export class RootInteraction {
   public spreadsheet: SpreadSheet;
@@ -138,7 +144,10 @@ export class RootInteraction {
   }
 
   public isSelectedState() {
-    return this.isStateOf(InteractionStateName.SELECTED);
+    return (
+      this.isStateOf(InteractionStateName.SELECTED) ||
+      this.isStateOf(InteractionStateName.BRUSH_SELECTED)
+    );
   }
 
   public isAllSelectedState() {
@@ -162,13 +171,17 @@ export class RootInteraction {
   }
 
   // 获取当前 interaction 记录的 Cells 元信息列表，包括不在可视区域内的格子
-  public getCells() {
+  public getCells(cellType?: CellTypes[]): CellMeta[] {
     const currentState = this.getState();
-    return currentState?.cells || [];
+    const cells = currentState?.cells || [];
+    if (isNil(cellType)) {
+      return cells;
+    }
+    return cells.filter((cell) => cellType.includes(cell.type));
   }
 
   // 获取 cells 中在可视区域内的实例列表
-  public getActiveCells() {
+  public getActiveCells(): S2CellType[] {
     const ids = this.getCells().map((item) => item.id);
     const allCells = this.getAllCells();
     // 这里的顺序要以 ids 中的顺序为准，代表点击 cell 的顺序
@@ -206,7 +219,10 @@ export class RootInteraction {
 
   public getAllRowHeaderCells(): RowCell[] {
     const children = this.spreadsheet.foregroundGroup?.getChildren() || [];
-    const rowHeader = children.find((group) => group instanceof RowHeader);
+    const rowHeader = children.find(
+      (group) =>
+        group instanceof RowHeader && !(group instanceof SeriesNumberHeader), // series cell not belong to row header cell
+    );
     const headerChildren = rowHeader?.cfg?.children || [];
 
     return getAllChildCells<RowCell>(headerChildren, RowCell).filter(
@@ -307,12 +323,10 @@ export class RootInteraction {
       return;
     }
 
-    // 高亮所有的子节点, 但是只有叶子节点需要参与数据计算
-    const needCalcNodes = childrenNodes.filter((node) => node?.isLeaf);
     // 兼容行列多选 (高亮 行/列头 以及相对应的数值单元格)
     this.changeState({
       cells: selectedCells,
-      nodes: needCalcNodes,
+      nodes: childrenNodes,
       stateName: InteractionStateName.SELECTED,
     });
 
@@ -350,6 +364,23 @@ export class RootInteraction {
     hideColumnsByThunkGroup(this.spreadsheet, hiddenColumnFields, forceRender);
   }
 
+  private getBrushSelectionInfo(
+    brushSelection?: boolean | BrushSelection,
+  ): BrushSelectionInfo {
+    if (isBoolean(brushSelection)) {
+      return {
+        dataBrushSelection: brushSelection,
+        rowBrushSelection: brushSelection,
+        colBrushSelection: brushSelection,
+      };
+    }
+    return {
+      dataBrushSelection: brushSelection?.data ?? false,
+      rowBrushSelection: brushSelection?.row ?? false,
+      colBrushSelection: brushSelection?.col ?? false,
+    };
+  }
+
   private getDefaultInteractions() {
     const {
       resize,
@@ -358,6 +389,8 @@ export class RootInteraction {
       rangeSelection,
       selectedCellMove,
     } = this.spreadsheet.options.interaction;
+    const { dataBrushSelection, rowBrushSelection, colBrushSelection } =
+      this.getBrushSelectionInfo(brushSelection);
 
     return [
       {
@@ -387,8 +420,18 @@ export class RootInteraction {
       },
       {
         key: InteractionName.BRUSH_SELECTION,
-        interaction: BrushSelection,
-        enable: !isMobile() && brushSelection,
+        interaction: DataCellBrushSelection,
+        enable: !isMobile() && dataBrushSelection,
+      },
+      {
+        key: InteractionName.ROW_BRUSH_SELECTION,
+        interaction: RowBrushSelection,
+        enable: !isMobile() && rowBrushSelection,
+      },
+      {
+        key: InteractionName.COL_BRUSH_SELECTION,
+        interaction: ColBrushSelection,
+        enable: !isMobile() && colBrushSelection,
       },
       {
         key: InteractionName.COL_ROW_RESIZE,
@@ -450,9 +493,15 @@ export class RootInteraction {
     }
   }
 
+  // 改变 cell 交互状态后，进行了更新和重新绘制
   public changeState(interactionStateInfo: InteractionStateInfo) {
     const { interaction } = this.spreadsheet;
-    const { cells, force, stateName } = interactionStateInfo;
+    const {
+      cells = [],
+      force,
+      stateName,
+      onUpdateCells,
+    } = interactionStateInfo;
 
     if (isEmpty(cells) && stateName === InteractionStateName.SELECTED) {
       if (force) {
@@ -471,7 +520,16 @@ export class RootInteraction {
 
     this.clearState();
     this.setState(interactionStateInfo);
-    this.updatePanelGroupAllDataCells();
+
+    // 更新单元格
+    const update = () => {
+      this.updatePanelGroupAllDataCells();
+    };
+    if (onUpdateCells) {
+      onUpdateCells(this, update);
+    } else {
+      update();
+    }
     this.draw();
   }
 
@@ -513,5 +571,83 @@ export class RootInteraction {
 
   public getHoverTimer() {
     return this.hoverTimer;
+  }
+
+  public getSelectedCellHighlight(): InteractionCellHighlight {
+    const { selectedCellHighlight } = this.spreadsheet.options.interaction;
+
+    if (isBoolean(selectedCellHighlight)) {
+      return {
+        rowHeader: selectedCellHighlight,
+        colHeader: selectedCellHighlight,
+        currentRow: false,
+        currentCol: false,
+      };
+    }
+
+    const {
+      rowHeader = false,
+      colHeader = false,
+      currentRow = false,
+      currentCol = false,
+    } = selectedCellHighlight ?? {};
+
+    return {
+      rowHeader,
+      colHeader,
+      currentRow,
+      currentCol,
+    };
+  }
+
+  public getHoverAfterScroll(): boolean {
+    return this.spreadsheet.options.interaction.hoverAfterScroll;
+  }
+
+  public getHoverHighlight(): InteractionCellHighlight {
+    const { hoverHighlight } = this.spreadsheet.options.interaction;
+
+    if (isBoolean(hoverHighlight)) {
+      return {
+        rowHeader: hoverHighlight,
+        colHeader: hoverHighlight,
+        currentRow: hoverHighlight,
+        currentCol: hoverHighlight,
+      };
+    }
+
+    const {
+      rowHeader = false,
+      colHeader = false,
+      currentRow = false,
+      currentCol = false,
+    } = hoverHighlight ?? {};
+
+    return {
+      rowHeader,
+      colHeader,
+      currentRow,
+      currentCol,
+    };
+  }
+
+  public getBrushSelection(): BrushSelection {
+    const { brushSelection } = this.spreadsheet.options.interaction;
+
+    if (isBoolean(brushSelection)) {
+      return {
+        data: brushSelection,
+        row: brushSelection,
+        col: brushSelection,
+      };
+    }
+
+    const { data = false, row = false, col = false } = brushSelection ?? {};
+
+    return {
+      data,
+      row,
+      col,
+    };
   }
 }

@@ -14,12 +14,22 @@ export interface MappingResult extends ValueRange {
   fill: string;
   // only used in interval condition
   isCompare?: boolean;
+  /**
+   * @description only used in background condition, when the background color is too light, the font color will be white
+   * @version 1.34.0
+   */
+  intelligentReverseTextColor?: boolean;
+  /**
+   * @description custom the interval condition's width
+   * @version 1.38.0
+   */
+  fieldValue?: number;
 }
 
 export type MappingFunction = (
   fieldValue: number | string,
   data: Record<string, any>,
-) => MappingResult;
+) => MappingResult | null | undefined;
 
 /**
  * One field can hold a condition

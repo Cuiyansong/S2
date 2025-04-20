@@ -40,6 +40,7 @@ import type {
   S2Options,
   S2RenderOptions,
   S2Theme,
+  SortMethod,
   SpreadSheetFacetCfg,
   ThemeCfg,
   TooltipContentType,
@@ -59,6 +60,7 @@ import { RootInteraction } from '../interaction/root';
 import { getTheme } from '../theme';
 import { HdAdapter } from '../ui/hd-adapter';
 import { BaseTooltip } from '../ui/tooltip';
+import { removeOffscreenCanvas } from '../utils/canvas';
 import { clearValueRangeState } from '../utils/condition/state-controller';
 import { hideColumnsByThunkGroup } from '../utils/hide-columns';
 import {
@@ -67,7 +69,6 @@ import {
   getSafetyOptions,
 } from '../utils/merge';
 import { getTooltipData, getTooltipOptions } from '../utils/tooltip';
-import { removeOffscreenCanvas } from '../utils/canvas';
 
 export abstract class SpreadSheet extends EE {
   // theme config
@@ -158,6 +159,7 @@ export abstract class SpreadSheet extends EE {
     this.initHdAdapter();
     this.registerIcons();
     this.setOverscrollBehavior();
+    this.mountSheetInstance();
   }
 
   private setOverscrollBehavior() {
@@ -214,10 +216,12 @@ export abstract class SpreadSheet extends EE {
   }
 
   private initInteraction() {
+    this.interaction?.destroy?.();
     this.interaction = new RootInteraction(this);
   }
 
   private initTooltip() {
+    this.tooltip?.destroy?.();
     this.tooltip = this.renderTooltip();
     if (!(this.tooltip instanceof BaseTooltip)) {
       // eslint-disable-next-line no-console
@@ -300,7 +304,7 @@ export abstract class SpreadSheet extends EE {
 
   public showTooltipWithInfo(
     event: CanvasEvent | MouseEvent,
-    data: TooltipData[],
+    cellInfos: TooltipData[],
     options?: TooltipOptions,
   ) {
     const { showTooltip, content } = getTooltipOptions(this, event);
@@ -309,15 +313,17 @@ export abstract class SpreadSheet extends EE {
     }
 
     const targetCell = this.getCell(event?.target);
-    const tooltipData = getTooltipData({
-      spreadsheet: this,
-      cellInfos: data,
-      targetCell,
-      options: {
-        enableFormat: true,
-        ...options,
-      },
-    });
+    const tooltipData =
+      options?.data ??
+      getTooltipData({
+        spreadsheet: this,
+        cellInfos,
+        targetCell,
+        options: {
+          enableFormat: true,
+          ...options,
+        },
+      });
 
     this.showTooltip({
       data: tooltipData,
@@ -358,18 +364,49 @@ export abstract class SpreadSheet extends EE {
    * Group sort params kept in {@see store} and
    * Priority: group sort > advanced sort
    * @param dataCfg
+   * @param reset 是否使用传入的 dataCfg 重置已保存的 dataCfg
+   *
+   * @example setDataCfg(dataCfg, true) 直接使用传入的 DataCfg，不再与上次数据进行合并
    */
-  public setDataCfg(dataCfg: S2DataConfig) {
+  public setDataCfg<T extends boolean = false>(
+    dataCfg: T extends true ? S2DataConfig : Partial<S2DataConfig>,
+    reset?: T,
+  ) {
     this.store.set('originalDataCfg', dataCfg);
-    this.dataCfg = getSafetyDataConfig(this.dataCfg, dataCfg);
+    if (reset) {
+      this.dataCfg = getSafetyDataConfig(dataCfg);
+    } else {
+      this.dataCfg = getSafetyDataConfig(this.dataCfg, dataCfg);
+    }
     // clear value ranger after each updated data cfg
     clearValueRangeState(this);
   }
 
-  public setOptions(options: Partial<S2Options>) {
+  public setOptions(options: Partial<S2Options>, reset?: boolean) {
     this.hideTooltip();
-    this.options = customMerge(this.options, options);
+
+    if (reset) {
+      this.options = getSafetyOptions(options);
+    } else {
+      this.options = customMerge(this.options, options);
+    }
+
+    if (reset || options.tooltip?.renderTooltip) {
+      this.initTooltip();
+    }
+
+    this.resetHiddenColumnsDetailInfoIfNeeded();
     this.registerIcons();
+  }
+
+  /**
+   * 配置都是 merge 操作, 但是隐藏列配置比较特殊, 变更时, 应该是全量覆盖, 而不应该是合并
+   * https://github.com/antvis/S2/issues/2495
+   */
+  private resetHiddenColumnsDetailInfoIfNeeded() {
+    if (!isEmpty(this.options.interaction?.hiddenColumnFields)) {
+      this.store.set('hiddenColumnsDetail', []);
+    }
   }
 
   public render(reloadData = true, options: S2RenderOptions = {}) {
@@ -395,6 +432,22 @@ export abstract class SpreadSheet extends EE {
     this.emit(S2Event.LAYOUT_AFTER_RENDER);
   }
 
+  private mountSheetInstance() {
+    const canvas = this.getCanvasElement();
+    if (canvas) {
+      // eslint-disable-next-line no-underscore-dangle
+      canvas.__s2_instance__ = this;
+    }
+  }
+
+  private unmountSheetInstance() {
+    const canvas = this.getCanvasElement();
+    if (canvas) {
+      // eslint-disable-next-line no-underscore-dangle
+      delete canvas.__s2_instance__;
+    }
+  }
+
   public destroy() {
     this.restoreOverscrollBehavior();
     this.emit(S2Event.LAYOUT_DESTROY);
@@ -404,8 +457,8 @@ export abstract class SpreadSheet extends EE {
     this.store?.clear();
     this.destroyTooltip();
     this.clearCanvasEvent();
+    this.unmountSheetInstance();
     this.container?.destroy();
-
     removeOffscreenCanvas();
   }
 
@@ -481,8 +534,14 @@ export abstract class SpreadSheet extends EE {
   /**
    * 获取 <canvas/> HTML元素
    */
-  public getCanvasElement(): HTMLCanvasElement {
-    return this.container.get('el') as HTMLCanvasElement;
+  public getCanvasElement(): HTMLCanvasElement & {
+    // eslint-disable-next-line camelcase
+    __s2_instance__: SpreadSheet;
+  } {
+    return this.container.get('el') as HTMLCanvasElement & {
+      // eslint-disable-next-line camelcase
+      __s2_instance__: SpreadSheet;
+    };
   }
 
   public getLayoutWidthType(): LayoutWidthType {
@@ -526,25 +585,32 @@ export abstract class SpreadSheet extends EE {
    * but offsetY(vertical scroll don't need animation)
    */
   public updateScrollOffset(offsetConfig: OffsetConfig) {
+    const config: OffsetConfig = {
+      offsetX: {
+        value: undefined,
+        animate: false,
+      },
+      offsetY: {
+        value: undefined,
+        animate: false,
+      },
+      rowHeaderOffsetX: {
+        value: undefined,
+        animate: false,
+      },
+    };
+
     this.facet.updateScrollOffset(
-      customMerge(
-        {
-          offsetX: {
-            value: undefined,
-            animate: false,
-          },
-          offsetY: {
-            value: undefined,
-            animate: false,
-          },
-        },
-        offsetConfig,
-      ) as OffsetConfig,
+      customMerge(config, offsetConfig) as OffsetConfig,
     );
   }
 
   public getTooltipDataItemMappingCallback() {
     return this.options?.mappingDisplayDataItem;
+  }
+
+  protected isCellType(cell?: CanvasEvent['target']) {
+    return cell instanceof BaseCell;
   }
 
   // 获取当前cell实例
@@ -554,7 +620,7 @@ export abstract class SpreadSheet extends EE {
     let parent = target;
     // 一直索引到g顶层的canvas来检查是否在指定的cell中
     while (parent && !(parent instanceof Canvas)) {
-      if (parent instanceof BaseCell) {
+      if (this.isCellType(parent)) {
         // 在单元格中，返回true
         return parent as T;
       }
@@ -588,12 +654,12 @@ export abstract class SpreadSheet extends EE {
         ? totalConfig.showSubTotals
         : false;
     return {
+      label: i18n('总计'),
+      subLabel: i18n('小计'),
+      totalsGroupDimensions: [],
+      subTotalsGroupDimensions: [],
+      ...totalConfig,
       showSubTotals,
-      showGrandTotals: totalConfig.showGrandTotals,
-      reverseLayout: totalConfig.reverseLayout,
-      reverseSubLayout: totalConfig.reverseSubLayout,
-      label: totalConfig.label || i18n('总计'),
-      subLabel: totalConfig.subLabel || i18n('小计'),
     };
   }
 
@@ -657,7 +723,14 @@ export abstract class SpreadSheet extends EE {
     return this.store.get('initColumnLeafNodes', []);
   }
 
+  /**
+   * @deprecated 已废弃, 请使用 clearInitColumnLeafNodes
+   */
   public clearColumnLeafNodes() {
+    this.clearInitColumnLeafNodes();
+  }
+
+  public clearInitColumnLeafNodes() {
     this.store.set('initColumnLeafNodes', undefined);
   }
 
@@ -680,15 +753,15 @@ export abstract class SpreadSheet extends EE {
   }
 
   /**
-   * 计算文本在画布中的宽度
+   * 获取文本在画布中的测量信息
    * @param text 待计算的文本
    * @param font 文本 css 样式
-   * @returns 文本宽度
+   * @returns 文本测量信息 TextMetrics
    */
-  public measureTextWidth = memoize(
-    (text: number | string = '', font: unknown): number => {
+  public measureText = memoize(
+    (text: number | string = '', font: unknown): TextMetrics => {
       if (!font) {
-        return 0;
+        return null;
       }
 
       const ctx = this.getCanvasElement()?.getContext('2d');
@@ -705,10 +778,43 @@ export abstract class SpreadSheet extends EE {
         .join(' ')
         .trim();
 
-      return ctx.measureText(String(text)).width;
+      return ctx.measureText(String(text));
     },
     (text: any, font) => [text, ...values(font)].join(''),
   );
+
+  /**
+   * 计算文本在画布中的宽度
+   * @param text 待计算的文本
+   * @param font 文本 css 样式
+   * @returns 文本宽度
+   */
+  public measureTextWidth = (
+    text: number | string = '',
+    font: unknown,
+  ): number => {
+    const textMetrics = this.measureText(text, font);
+    return textMetrics?.width || 0;
+  };
+
+  /**
+   * 计算文本在画布中的宽度 https://developer.mozilla.org/zh-CN/docs/Web/API/TextMetrics
+   * @param text 待计算的文本
+   * @param font 文本 css 样式
+   * @returns 文本高度
+   */
+  public measureTextHeight = (
+    text: number | string = '',
+    font: unknown,
+  ): number => {
+    const textMetrics = this.measureText(text, font);
+    if (!textMetrics) {
+      return 0;
+    }
+    return (
+      textMetrics.actualBoundingBoxAscent + textMetrics.actualBoundingBoxDescent
+    );
+  };
 
   /**
    * 粗略计算文本在画布中的宽度
@@ -735,4 +841,22 @@ export abstract class SpreadSheet extends EE {
 
     return w;
   };
+
+  public updateSortMethodMap(
+    nodeId: string,
+    sortMethod: SortMethod,
+    replace = false,
+  ) {
+    const lastSortMethodMap = !replace ? this.store.get('sortMethodMap') : null;
+    this.store.set('sortMethodMap', {
+      ...lastSortMethodMap,
+      [nodeId]: sortMethod,
+    });
+  }
+
+  public getMenuDefaultSelectedKeys(nodeId: string): string[] {
+    const sortMethodMap = this.store.get('sortMethodMap');
+    const selectedSortMethod = get(sortMethodMap, nodeId);
+    return selectedSortMethod ? [selectedSortMethod] : [];
+  }
 }

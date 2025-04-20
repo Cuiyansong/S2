@@ -1,10 +1,11 @@
 import {
+  type Data,
   EXTRA_COLUMN_FIELD,
   isUpDataValue,
   type S2DataConfig,
-  type S2Options,
 } from '@antv/s2';
 import { isNil } from 'lodash';
+import type { SheetComponentOptions } from '../../src';
 
 const getKPIMockData = () => {
   return {
@@ -200,8 +201,36 @@ const getMiniChartMockData = () => {
 };
 
 export const StrategySheetDataConfig: S2DataConfig = {
+  // 普通数值+同环比数据
   data: [
-    // 普通数值+同环比数据
+    {
+      date: '2022-09',
+      [EXTRA_COLUMN_FIELD]: JSON.stringify(['数值', '环比', '同比']),
+    },
+    {
+      'measure-a': {
+        originalValues: [[377, '']],
+        values: [[377, '']],
+      },
+      'measure-b': {
+        originalValues: [[377, 324]],
+        values: [[377, 324]],
+      },
+      'measure-c': {
+        originalValues: [[null, 324]],
+        values: [[null, 324]],
+      },
+      'measure-d': {
+        originalValues: [[377, 324]],
+        values: [[377, 324]],
+      },
+      'measure-f': {
+        originalValues: [[377, 324]],
+        values: [[377, 324]],
+      },
+      date: '2022-10',
+      [EXTRA_COLUMN_FIELD]: JSON.stringify(['数值', '环比']),
+    },
     {
       'measure-a': {
         originalValues: [[3877, 4324, 0.42]],
@@ -230,13 +259,14 @@ export const StrategySheetDataConfig: S2DataConfig = {
         originalValues: [[377, 324, 0.02]],
         values: [[377, 324, '0.02']],
       },
-      date: '2021',
+      date: '2022-11',
       [EXTRA_COLUMN_FIELD]: JSON.stringify(['数值', '环比', '同比']),
     },
+
     // 净增目标完成度子弹图数据
-    getKPIMockData(),
+    getKPIMockData() as unknown as Data,
     // 趋势图数据
-    getMiniChartMockData(),
+    getMiniChartMockData() as unknown as Data,
     {
       'measure-a': {
         originalValues: [[377, '']],
@@ -260,31 +290,6 @@ export const StrategySheetDataConfig: S2DataConfig = {
       },
       date: '2022',
       [EXTRA_COLUMN_FIELD]: JSON.stringify(['数值', '环比']),
-    },
-
-    {
-      'measure-a': {
-        originalValues: [[377, '', 0.02]],
-        values: [[377, '', '0.02']],
-      },
-      'measure-b': {
-        originalValues: [[377, 324, 0.02]],
-        values: [[377, 324, '0.02']],
-      },
-      'measure-c': {
-        originalValues: [[null, 324, 0.02]],
-        values: [[null, 324, '0.02']],
-      },
-      'measure-d': {
-        originalValues: [[377, 324, 0.02]],
-        values: [[377, 324, '0.02']],
-      },
-      'measure-f': {
-        originalValues: [[377, 324, 0.02]],
-        values: [[377, 324, '0.02']],
-      },
-      date: '2022-10',
-      [EXTRA_COLUMN_FIELD]: JSON.stringify(['数值', '环比', '同比']),
     },
   ],
   meta: [
@@ -380,15 +385,17 @@ export const StrategySheetDataConfig: S2DataConfig = {
   },
 };
 
-export const StrategyOptions: S2Options = {
+export const StrategyOptions: SheetComponentOptions = {
   width: 800,
   height: 800,
   cornerText: '指标',
+  // frozenFirstRow: true,
   placeholder: (v) => {
     const placeholder = v?.fieldValue ? '-' : '';
     return placeholder;
   },
   interaction: {
+    selectedCellsSpotlight: true,
     resize: {
       disable: (resizeInfo) => {
         return (
@@ -410,16 +417,40 @@ export const StrategyOptions: S2Options = {
     text: [
       {
         mapping: (value, cellInfo) => {
-          const { meta } = cellInfo;
+          const { colIndex } = cellInfo;
           const isNilValue = isNil(value) || value === '';
-          if (meta?.fieldValue?.values[0][0] === value || isNilValue) {
+
+          if (colIndex === 0 || isNilValue) {
             return {
               fill: '#000',
             };
           }
+
           return {
             fill: isUpDataValue(value) ? '#FF4D4F' : '#29A294',
           };
+        },
+      },
+    ],
+    icon: [
+      {
+        position: 'right',
+        mapping(value, cellInfo) {
+          const { colIndex } = cellInfo;
+          if (colIndex === 0) {
+            return null;
+          }
+
+          return isUpDataValue(value)
+            ? {
+                // icon 用于指定图标条件格式所使用的 icon 类型
+                icon: 'CellUp',
+                fill: '#29A294',
+              }
+            : {
+                icon: 'CellDown',
+                fill: '#FF4D4F',
+              };
         },
       },
     ],

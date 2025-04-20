@@ -1,8 +1,7 @@
 /* eslint-disable jest/expect-expect */
-import { createPivotSheet } from 'tests/util/helpers';
-import type { IGroup } from '@antv/g-canvas';
+import { createPivotSheet, createTableSheet } from 'tests/util/helpers';
+import type { Group, IGroup, ShapeAttrs } from '@antv/g-canvas';
 import { get } from 'lodash';
-import type { ShapeAttrs } from '@antv/g-canvas';
 import type {
   TextBaseline,
   TextTheme,
@@ -22,7 +21,7 @@ import type { Node } from '@/facet/layout/node';
 describe('SpreadSheet Theme Tests', () => {
   let s2: PivotSheet;
 
-  beforeAll(() => {
+  beforeEach(() => {
     s2 = createPivotSheet(
       {
         headerActionIcons: [
@@ -40,7 +39,7 @@ describe('SpreadSheet Theme Tests', () => {
     s2.render();
   });
 
-  afterAll(() => {
+  afterEach(() => {
     s2.destroy();
   });
 
@@ -50,7 +49,18 @@ describe('SpreadSheet Theme Tests', () => {
       CellTypes.ROW_CELL,
       CellTypes.COL_CELL,
       CellTypes.CORNER_CELL,
+      CellTypes.MERGED_CELL,
     ];
+
+    test('should get pivot sheet default theme', () => {
+      expect(s2.theme).toMatchSnapshot();
+    });
+
+    test('should get table sheet theme', () => {
+      const tableSheet = createTableSheet(null);
+
+      expect(tableSheet.theme).toMatchSnapshot();
+    });
 
     test.each(CELL_TYPES)(
       "should assign the same color for %s's text and icon",
@@ -63,8 +73,19 @@ describe('SpreadSheet Theme Tests', () => {
 
         expect(cellTheme.bolderText.fill).toEqual(cellTheme.icon.fill);
         expect(cellTheme.text.fill).toEqual(cellTheme.icon.fill);
+        expect(cellTheme.cell).toBeTruthy();
       },
     );
+
+    test.each(CELL_TYPES)('should set cell for %s', (cellType: CellTypes) => {
+      s2.setThemeCfg({
+        name: 'colorful',
+      });
+      s2.render();
+      const cellTheme = s2.theme[cellType];
+
+      expect(cellTheme.cell).toBeTruthy();
+    });
 
     test('should set theme correctly', () => {
       s2.setTheme({
@@ -142,7 +163,9 @@ describe('SpreadSheet Theme Tests', () => {
         },
       });
       s2.render();
-      const rowCell = s2.facet.rowHeader.getFirst() as RowCell;
+      const rowCell = (
+        s2.facet.rowHeader.getChildByIndex(0) as Group
+      ).getFirst() as RowCell;
       const actionIconCfg: ShapeAttrs = get(rowCell, 'actionIcons.[0].cfg');
 
       expect(actionIconCfg.fill).toEqual(iconInfo.fill);
@@ -176,7 +199,9 @@ describe('SpreadSheet Theme Tests', () => {
         s2.setThemeCfg(getRowCellThemeCfg(align));
         s2.render();
 
-        const rowCell = s2.facet.rowHeader.getFirst() as RowCell;
+        const rowCell = (
+          s2.facet.rowHeader.getChildByIndex(0) as Group
+        ).getFirst() as RowCell;
 
         const rowCellWidth = get(rowCell, 'meta.width');
         const actionIconCfg: ShapeAttrs = get(rowCell, 'actionIcons.[0].cfg');
@@ -356,7 +381,7 @@ describe('SpreadSheet Theme Tests', () => {
 
         expectTextAlign({
           textAlign,
-          fontWight: 500,
+          fontWight: 700,
           customNodes: isRowCell ? rowTotalNodes : colTotalNodes,
         });
       },
@@ -443,16 +468,82 @@ describe('SpreadSheet Theme Tests', () => {
 
         s2.render();
 
-        const rowCell = s2.facet.rowHeader.getChildByIndex(0) as IGroup; // 浙江省
+        const rowCell = (
+          s2.facet.rowHeader.getChildByIndex(0) as Group
+        ).getFirst() as IGroup; // 浙江省
         const textOfRowCell = getTextShape(rowCell);
 
-        const seriesCell = s2.facet.rowIndexHeader.getChildByIndex(3) as IGroup; // 序号1
+        const seriesCell = (
+          s2.facet.rowIndexHeader.getChildByIndex(0) as Group
+        ).getFirst() as IGroup; // 序号1
         const textOfSeriesCell = getTextShape(seriesCell);
 
-        expect(textOfRowCell.attr('textBaseline')).toEqual('top');
-        expect(textOfSeriesCell.attr('textBaseline')).toEqual('top');
+        expect(textOfRowCell.attr('textBaseline')).toEqual(textBaseline);
+        expect(textOfSeriesCell.attr('textBaseline')).toEqual(textBaseline);
         expect(textOfRowCell.attr('y')).toEqual(textOfSeriesCell.attr('y'));
       },
     );
+  });
+
+  // https://github.com/antvis/S2/issues/1892
+  describe('ScrollBar Tests', () => {
+    beforeEach(() => {
+      // 保证滚动条很小
+      s2.setOptions({
+        style: {
+          rowCfg: {
+            width: 5000,
+          },
+          cellCfg: {
+            width: 5000,
+            height: 5000,
+          },
+        },
+      });
+      s2.render();
+    });
+
+    test('should render default min scrollbar size', () => {
+      // 行头有分割线, 会减去分割线的宽度 (2px)
+      expect(s2.facet.hRowScrollBar.thumbLen).toEqual(30);
+      expect(s2.facet.hScrollBar.thumbLen).toEqual(32);
+      expect(s2.facet.vScrollBar.thumbLen).toEqual(32);
+    });
+
+    test('should render min scrollbar size', () => {
+      s2.setTheme({
+        scrollBar: {
+          thumbHorizontalMinSize: 20,
+          thumbVerticalMinSize: 10,
+        },
+      });
+
+      s2.render();
+
+      // 行头有分割线, 会减去分割线的宽度 (2px)
+      expect(s2.facet.hRowScrollBar.thumbLen).toEqual(18);
+      expect(s2.facet.hScrollBar.thumbLen).toEqual(20);
+      expect(s2.facet.vScrollBar.thumbLen).toEqual(10);
+    });
+
+    test('should render real scrollbar size', () => {
+      s2.setOptions({
+        style: {
+          rowCfg: {
+            width: 400,
+          },
+          cellCfg: {
+            width: 200,
+            height: 50,
+          },
+        },
+      });
+      s2.render();
+
+      // 行头有分割线, 会减去分割线的宽度 (2px)
+      expect(s2.facet.hRowScrollBar.thumbLen).not.toBeLessThanOrEqual(30);
+      expect(s2.facet.hScrollBar.thumbLen).not.toBeLessThanOrEqual(32);
+      expect(s2.facet.vScrollBar.thumbLen).not.toBeLessThanOrEqual(32);
+    });
   });
 });

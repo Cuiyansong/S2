@@ -1,7 +1,12 @@
-import type { IElement, IGroup, IShape, ShapeAttrs } from '@antv/g-canvas';
+import type {
+  IElement,
+  IGroup,
+  IShape,
+  ShapeAttrs,
+  Event as GEvent,
+} from '@antv/g-canvas';
 import { Group } from '@antv/g-canvas';
 import { each, get } from 'lodash';
-import { MIN_SCROLL_BAR_HEIGHT } from '../../common/constant/scroll';
 import type { ScrollBarTheme } from '../../common/interface/theme';
 import type { PointObject, ScrollBarCfg } from './interface';
 
@@ -32,9 +37,6 @@ export class ScrollBar extends Group {
 
   // scrollBar 的位置，必传
   public position: PointObject;
-
-  // 滑块的最小长度，非必传，默认值为 20
-  public minThumbLen: number;
 
   // 滑块相对滑道的偏移, 非必传，默认值为 0
   public thumbOffset: number;
@@ -72,7 +74,6 @@ export class ScrollBar extends Group {
       trackLen,
       thumbLen,
       position,
-      minThumbLen = MIN_SCROLL_BAR_HEIGHT,
       thumbOffset = 0,
       theme,
       scrollTargetMaxOffset,
@@ -83,7 +84,6 @@ export class ScrollBar extends Group {
     this.trackLen = trackLen;
     this.thumbLen = thumbLen;
     this.position = position;
-    this.minThumbLen = minThumbLen;
     this.theme = theme;
     this.scrollTargetMaxOffset = scrollTargetMaxOffset;
 
@@ -147,6 +147,7 @@ export class ScrollBar extends Group {
   public updateThumbOffset = (offset: number, emitScrollChange = true) => {
     const newOffset = this.validateRange(offset);
     const isNotChanged = this.thumbOffset === newOffset && newOffset !== 0;
+
     if (isNotChanged) {
       return;
     }
@@ -316,7 +317,7 @@ export class ScrollBar extends Group {
 
       this.isMobile = isMobile;
 
-      const event: MouseEvent = this.isMobile ? get(e, 'touches.0', e) : e;
+      const event = (this.isMobile ? get(e, 'touches.0', e) : e) as MouseEvent;
       const { clientX, clientY } = event;
 
       // 将开始的点记录下来
@@ -360,10 +361,10 @@ export class ScrollBar extends Group {
   };
 
   // 点击滑道的事件回调,移动滑块位置
-  private onTrackClick = (event: MouseEvent) => {
+  private onTrackClick = (event: GEvent) => {
     const offset = this.isHorizontal
-      ? event.offsetX - this.position.x - this.thumbLen / 2
-      : event.offsetY - this.position.y - this.thumbLen / 2;
+      ? event.x - this.position.x - this.thumbLen / 2
+      : event.y - this.position.y - this.thumbLen / 2;
 
     const newOffset = this.validateRange(offset);
     this.updateThumbOffset(newOffset);

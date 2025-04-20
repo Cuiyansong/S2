@@ -6,25 +6,34 @@ import {
   isNil,
   isNumber,
   isString,
+  map,
   memoize,
-  reverse,
+  size,
   toString,
   trim,
   values,
 } from 'lodash';
+import type { SimpleBBox } from '@antv/g-canvas';
 import type { ColCell } from '../cell';
-import { CellTypes, EMPTY_PLACEHOLDER } from '../common/constant';
+import {
+  CellTypes,
+  ELLIPSIS_SYMBOL,
+  EMPTY_FIELD_VALUE,
+  EMPTY_PLACEHOLDER,
+} from '../common/constant';
 import type {
   CellCfg,
   Condition,
   MultiData,
   S2CellType,
+  SimpleDataItem,
   ViewMeta,
 } from '../common/interface';
 import type { Padding, TextTheme } from '../common/interface/theme';
-import { renderText } from '../utils/g-renders';
+import { renderIcon, renderText } from '../utils/g-renders';
 import { getOffscreenCanvas } from './canvas';
 import { renderMiniChart } from './g-mini-charts';
+import { getMaxTextWidth, getTextAndFollowingIconPosition } from './cell/cell';
 
 /**
  * 计算文本在画布中的宽度
@@ -66,7 +75,7 @@ export const getEllipsisTextInner = (
   font: CSSStyleDeclaration,
 ) => {
   const STEP = 16; // 每次 16，调参工程师
-  const DOT_WIDTH = measureTextWidth('...', font);
+  const DOT_WIDTH = measureTextWidth(ELLIPSIS_SYMBOL, font);
 
   let leftText;
 
@@ -197,9 +206,11 @@ export const getEllipsisText = ({
   placeholder?: string;
 }) => {
   let font = {};
-  const empty = placeholder ?? EMPTY_PLACEHOLDER;
-  // [null, undefined, ''] will return empty
-  const finalText = isNil(text) || text === '' ? empty : `${text}`;
+  const emptyPlaceholder = placeholder ?? EMPTY_PLACEHOLDER;
+  // 对应维度缺少维度数据时, 会使用 EMPTY_FIELD_VALUE 填充, 实际渲染时统一转成 "-"
+  const isEmptyText = isNil(text) || text === '' || text === EMPTY_FIELD_VALUE;
+  const finalText = isEmptyText ? emptyPlaceholder : `${text}`;
+
   let priority = priorityParam;
   if (fontParam && isArray(fontParam)) {
     priority = fontParam as string[];
@@ -239,18 +250,18 @@ export const getEllipsisText = ({
   subTexts = leftSubTexts.concat(subTexts);
 
   let result = finalText;
-  const DOT_WIDTH = measureTextWidth('...', font);
+  const DOT_WIDTH = measureTextWidth(ELLIPSIS_SYMBOL, font);
   let remainWidth = maxWidth;
   subTexts.forEach((subText) => {
     if (remainWidth <= 0) {
       const originIdx = result.indexOf(subText);
       const prev = result.slice(originIdx - 3, originIdx);
-      if (prev && prev !== '...') {
+      if (prev && prev !== ELLIPSIS_SYMBOL) {
         const subWidth = measureTextWidth(subText, font);
         // fix-边界处理: when subWidth <= DOT_WIDTH 不做 ... 处理
         result = result.replace(
           subText,
-          subWidth > DOT_WIDTH ? '...' : subText,
+          subWidth > DOT_WIDTH ? ELLIPSIS_SYMBOL : subText,
         );
       } else {
         result = result.replace(subText, '');
@@ -291,6 +302,32 @@ export const isUpDataValue = (value: number | string): boolean => {
 };
 
 /**
+ * Determines whether the data is actually equal to 0 or empty or nil
+ * example: "0.00%" => true
+ * @param value
+ */
+export const isZeroOrEmptyValue = (value: number | string): boolean => {
+  return (
+    isNil(value) ||
+    value === '' ||
+    Number(String(value).replace(/[^0-9.]+/g, '')) === 0
+  );
+};
+
+/**
+ * Determines whether the data is actually equal to 0 or empty or nil or equals to compareValue
+ * example: "0.00%" => true
+ * @param value
+ * @param compareValue
+ */
+export const isUnchangedValue = (
+  value: number | string,
+  compareValue: number | string,
+): boolean => {
+  return isZeroOrEmptyValue(value) || value === compareValue;
+};
+
+/**
  * 根据单元格对齐方式计算文本的 x 坐标
  * @param x 单元格的 x 坐标
  * @param paddingRight
@@ -323,9 +360,7 @@ const calX = (
 const getDrawStyle = (cell: S2CellType) => {
   const { isTotals } = cell.getMeta();
   const isMeasureField = (cell as ColCell).isMeasureField?.();
-  const cellStyle = cell.getStyle(
-    isMeasureField ? CellTypes.COL_CELL : CellTypes.DATA_CELL,
-  );
+  const cellStyle = cell.getStyle(cell.cellType || CellTypes.DATA_CELL);
 
   let textStyle: TextTheme;
   if (isMeasureField) {
@@ -360,7 +395,7 @@ const getCurrentTextStyle = ({
   textStyle: TextTheme;
   textCondition?: Condition;
 }) => {
-  let fill = textStyle.fill;
+  let fill = textStyle?.fill;
   if (textCondition?.mapping) {
     fill = textCondition?.mapping(data, {
       rowIndex,
@@ -382,6 +417,56 @@ export const getEmptyPlaceholder = (
 };
 
 /**
+ * @desc 获取多指标情况下每一个指标的内容包围盒
+ * --------------------------------------------
+ * |  text icon  |  text icon  |  text icon  |
+ * |-------------|-------------|-------------|
+ * |  text icon  |  text icon  |  text icon  |
+ * --------------------------------------------
+ * @param box SimpleBBox 整体绘制内容包围盒
+ * @param texts  SimpleDataItem[][] 指标集合
+ * @param widthPercent number[] 每行指标的宽度百分比
+ */
+export const getContentAreaForMultiData = (
+  box: SimpleBBox,
+  textValues: SimpleDataItem[][],
+  widthPercent?: number[],
+) => {
+  const { x, y, width, height } = box;
+  const avgHeight = height / size(textValues);
+  const boxes: SimpleBBox[][] = [];
+  let curX: number;
+  let curY: number;
+  let avgWidth: number;
+  let totalWidth = 0;
+
+  const percents = map(widthPercent, (item) => (item > 1 ? item / 100 : item));
+
+  for (let i = 0; i < size(textValues); i++) {
+    curY = y + avgHeight * i;
+    const rows: SimpleBBox[] = [];
+    curX = x;
+    totalWidth = 0;
+    for (let j = 0; j < size(textValues[i]); j++) {
+      avgWidth = !isEmpty(percents)
+        ? width * percents[j]
+        : width / size(textValues[0]); // 指标个数相同，任取其一即可
+
+      curX = calX(x, { left: 0, right: 0 }, totalWidth, 'left');
+      totalWidth += avgWidth;
+      rows.push({
+        x: curX,
+        y: curY,
+        width: avgWidth,
+        height: avgHeight,
+      });
+    }
+    boxes.push(rows);
+  }
+  return boxes;
+};
+
+/**
  * @desc draw text shape of object
  * @param cell
  * @multiData 自定义文本内容
@@ -392,8 +477,8 @@ export const drawObjectText = (
   multiData?: MultiData,
   useCondition = true,
 ) => {
-  const { x } = cell.getTextAndIconPosition(0).text;
   const {
+    x,
     y,
     height: totalTextHeight,
     width: totalTextWidth,
@@ -404,28 +489,29 @@ export const drawObjectText = (
   const { valuesCfg } = options.style.cellCfg;
   // 趋势分析表默认只作用一个条件（因为指标挂行头，每列都不一样，直接在回调里判断是否需要染色即可）
   const textCondition = options?.conditions?.text?.[0];
+  const iconCondition = options?.conditions?.icon?.[0];
 
   if (!isArray(textValues)) {
-    renderMiniChart(textValues, cell);
+    renderMiniChart(cell, textValues);
     return;
   }
 
   const widthPercent = valuesCfg?.widthPercent;
 
-  const realHeight = totalTextHeight / (textValues.length + 1);
   let labelHeight = 0;
   // 绘制单元格主标题
   if (text?.label) {
     const dataCellStyle = cell.getStyle(CellTypes.DATA_CELL);
     const labelStyle = dataCellStyle.bolderText;
-    const { padding } = dataCellStyle.cell;
-    labelHeight = realHeight / 2;
+    // TODO 把padding计算在内
+    // const { padding } = dataCellStyle.cell;
+    labelHeight = totalTextHeight / (textValues.length + 1);
 
-    renderText(
+    const textShape = renderText(
       cell,
       [],
-      calX(x, padding),
-      y + labelHeight,
+      x,
+      y + labelHeight / 2,
       getEllipsisText({
         measureTextWidth,
         text: text.label,
@@ -434,25 +520,36 @@ export const drawObjectText = (
       }),
       labelStyle,
     );
+
+    cell.addTextShape(textShape);
   }
 
   // 绘制指标
   const { cellStyle, textStyle } = getDrawStyle(cell);
-  const { textAlign } = textStyle;
-  const { padding } = cellStyle.cell;
+
+  const iconStyle = cellStyle?.icon;
+  const iconCfg = iconCondition &&
+    iconCondition.mapping && {
+      size: iconStyle?.size,
+      margin: iconStyle?.margin,
+      position: iconCondition?.position,
+    };
 
   let curText: string | number;
-  let curX: number;
-  let curY: number = y + realHeight / 2;
-  let avgWidth: number;
-  let totalWidth = 0;
+
+  const contentBoxes = getContentAreaForMultiData(
+    {
+      x,
+      y: y + labelHeight,
+      height: totalTextHeight - labelHeight,
+      width: totalTextWidth,
+    },
+    textValues,
+    widthPercent,
+  );
+
   for (let i = 0; i < textValues.length; i++) {
-    curY = y + realHeight * (i + 1) + labelHeight; // 加上label的高度
-    totalWidth = 0;
     const measures = clone(textValues[i]);
-    if (textAlign === 'right') {
-      reverse(measures); // 右对齐拿到的x坐标为最右坐标，指标顺序需要反过来
-    }
 
     for (let j = 0; j < measures.length; j++) {
       curText = measures[j];
@@ -466,31 +563,60 @@ export const drawObjectText = (
             textCondition,
           })
         : textStyle;
-      avgWidth = !isEmpty(widthPercent)
-        ? totalTextWidth * (widthPercent[j] / 100)
-        : totalTextWidth / text.values[0].length; // 指标个数相同，任取其一即可
-
-      curX = calX(x, padding, totalWidth, textAlign);
-      totalWidth += avgWidth;
       const { placeholder } = cell?.getMeta().spreadsheet.options;
       const emptyPlaceholder = getEmptyPlaceholder(
         cell?.getMeta(),
         placeholder,
       );
-      renderText(
+
+      const maxTextWidth = getMaxTextWidth(contentBoxes[i][j].width, iconStyle);
+      const ellipsisText = getEllipsisText({
+        measureTextWidth,
+        text: curText,
+        maxWidth: maxTextWidth,
+        fontParam: curStyle,
+        placeholder: emptyPlaceholder,
+      });
+      const actualTextWidth = measureTextWidth(ellipsisText, textStyle);
+
+      const position = getTextAndFollowingIconPosition(
+        contentBoxes[i][j],
+        textStyle,
+        actualTextWidth,
+        iconCfg,
+        iconCondition ? 1 : 0,
+      );
+
+      const textShape = renderText(
         cell,
         [],
-        curX,
-        curY,
-        getEllipsisText({
-          measureTextWidth,
-          text: curText,
-          maxWidth: avgWidth,
-          fontParam: curStyle,
-          placeholder: emptyPlaceholder,
-        }),
+        position.text.x,
+        position.text.y,
+        ellipsisText,
         curStyle,
+        {},
+        curText?.toString(),
       );
+      cell.addTextShape(textShape);
+
+      // 绘制条件格式的 icon
+      if (iconCondition && useCondition) {
+        const attrs = iconCondition?.mapping(curText, {
+          rowIndex: i,
+          colIndex: j,
+          meta: cell?.getMeta() as ViewMeta,
+        });
+        if (attrs) {
+          const iconShape = renderIcon(cell, {
+            ...position.icon,
+            name: attrs.icon,
+            width: iconStyle?.size,
+            height: iconStyle?.size,
+            fill: attrs.fill,
+          });
+          cell.addConditionIconShape(iconShape);
+        }
+      }
     }
   }
 };
@@ -499,9 +625,7 @@ export const drawObjectText = (
  * 根据 cellCfg 配置获取当前单元格宽度
  */
 export const getCellWidth = (cellCfg: CellCfg, labelSize = 1) => {
-  const { width } = cellCfg;
-  const cellWidth = width;
-  return cellWidth * labelSize;
+  return cellCfg?.width * labelSize;
 };
 
 export const safeJsonParse = (val: string) => {

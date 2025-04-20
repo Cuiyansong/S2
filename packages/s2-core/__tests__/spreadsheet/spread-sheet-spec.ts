@@ -1,7 +1,13 @@
 import * as mockDataConfig from 'tests/data/simple-data.json';
 import { getContainer, sleep } from 'tests/util/helpers';
+import { pick } from 'lodash';
 import { PivotSheet, TableSheet } from '@/sheet-type';
-import { S2Event, type S2Options } from '@/common';
+import {
+  DEFAULT_OPTIONS,
+  S2Event,
+  type S2Options,
+  type TextTheme,
+} from '@/common';
 
 const s2Options: S2Options = {
   width: 200,
@@ -14,11 +20,11 @@ describe('SpreadSheet Tests', () => {
   describe('Mount Sheet Tests', () => {
     let container: HTMLElement;
 
-    beforeAll(() => {
+    beforeEach(() => {
       container = getContainer();
     });
 
-    afterAll(() => {
+    afterEach(() => {
       container?.remove();
     });
 
@@ -98,7 +104,7 @@ describe('SpreadSheet Tests', () => {
       s2.destroy();
     });
 
-    test('should update scroll offset immediately', () => {
+    test('should update scroll offset x immediately', () => {
       const s2 = new PivotSheet(container, mockDataConfig, s2Options);
       s2.render();
 
@@ -108,6 +114,102 @@ describe('SpreadSheet Tests', () => {
         offsetX: { value: 30 },
       });
       expect(s2.facet.hScrollBar.current()).toBeGreaterThan(0);
+      expect(s2.facet.getScrollOffset()).toMatchInlineSnapshot(`
+        Object {
+          "rowHeaderScrollX": 0,
+          "scrollX": 30,
+          "scrollY": 0,
+        }
+      `);
+    });
+
+    test('should update scroll offset y immediately', () => {
+      const s2 = new PivotSheet(container, mockDataConfig, {
+        ...s2Options,
+        style: {
+          cellCfg: {
+            height: 200,
+          },
+        },
+      });
+      s2.render();
+
+      s2.updateScrollOffset({
+        offsetY: { value: 20 },
+      });
+      expect(s2.facet.vScrollBar.current()).toBeGreaterThan(0);
+      expect(s2.facet.getScrollOffset()).toMatchInlineSnapshot(`
+        Object {
+          "rowHeaderScrollX": 0,
+          "scrollX": 0,
+          "scrollY": 20,
+        }
+      `);
+    });
+
+    test('should update row header scroll offset x immediately', () => {
+      const s2 = new PivotSheet(container, mockDataConfig, {
+        ...s2Options,
+        frozenRowHeader: true,
+        style: {
+          rowCfg: {
+            width: 400,
+          },
+        },
+      });
+      s2.render();
+
+      expect(s2.facet.hRowScrollBar.current()).toEqual(0);
+      expect(s2.facet.getScrollOffset()).toMatchInlineSnapshot(`
+        Object {
+          "rowHeaderScrollX": 0,
+          "scrollX": 0,
+          "scrollY": 0,
+        }
+      `);
+
+      s2.updateScrollOffset({
+        rowHeaderOffsetX: { value: 30 },
+      });
+      expect(s2.facet.hRowScrollBar.current()).toBeGreaterThan(0);
+      expect(s2.facet.getScrollOffset()).toMatchInlineSnapshot(`
+        Object {
+          "rowHeaderScrollX": 30,
+          "scrollX": 0,
+          "scrollY": 0,
+        }
+      `);
+    });
+
+    test('should update scroll offset immediately', () => {
+      const s2 = new PivotSheet(container, mockDataConfig, {
+        ...s2Options,
+        style: {
+          rowCfg: {
+            width: 400,
+          },
+          cellCfg: {
+            height: 200,
+          },
+        },
+      });
+      s2.render();
+
+      s2.updateScrollOffset({
+        offsetY: { value: 20 },
+        offsetX: { value: 30 },
+        rowHeaderOffsetX: { value: 40 },
+      });
+      expect(s2.facet.vScrollBar.current()).toBeGreaterThan(0);
+      expect(s2.facet.hScrollBar.current()).toBeGreaterThan(0);
+      expect(s2.facet.hRowScrollBar.current()).toBeGreaterThan(0);
+      expect(s2.facet.getScrollOffset()).toMatchInlineSnapshot(`
+        Object {
+          "rowHeaderScrollX": 40,
+          "scrollX": 30,
+          "scrollY": 20,
+        }
+      `);
     });
 
     // https://github.com/antvis/S2/issues/1197
@@ -128,16 +230,37 @@ describe('SpreadSheet Tests', () => {
 
       s2.destroy();
     });
+
+    test.each([PivotSheet, TableSheet])(
+      'should not crash if style config is empty',
+      (Sheet) => {
+        function render() {
+          const s2 = new Sheet(container, mockDataConfig, {
+            width: 400,
+            height: 400,
+            style: {
+              rowCfg: null,
+              colCfg: null,
+              cellCfg: null,
+            },
+          });
+
+          s2.render();
+        }
+
+        expect(render).not.toThrowError();
+      },
+    );
   });
 
   describe('Destroy Sheet Tests', () => {
     let container: HTMLElement;
 
-    beforeAll(() => {
+    beforeEach(() => {
       container = getContainer();
     });
 
-    afterAll(() => {
+    afterEach(() => {
       container?.remove();
     });
 
@@ -270,6 +393,154 @@ describe('SpreadSheet Tests', () => {
 
       expect(tableSheet).toBeInstanceOf(TableSheet);
       expect(container.querySelectorAll('canvas')).toHaveLength(1);
+    });
+  });
+
+  describe('Sheet Config Change Tests', () => {
+    let container: HTMLElement;
+
+    beforeEach(() => {
+      container = getContainer();
+    });
+
+    afterEach(() => {
+      container?.remove();
+    });
+
+    test('should update all Data Config when reset is true', () => {
+      const totalData = [
+        {
+          province: '浙江',
+          type: '笔',
+          price: 3,
+          cost: 6,
+        },
+      ];
+      const s2 = new PivotSheet(
+        container,
+        { ...mockDataConfig, totalData },
+        s2Options,
+      );
+      s2.render();
+
+      expect(s2.dataSet.totalData).toEqual([
+        {
+          cost: 6,
+          price: 3,
+          province: '浙江',
+          type: '笔',
+        },
+      ]);
+      expect(s2.dataCfg.totalData).toEqual(totalData);
+
+      // 改变 totalData 为 undefined 再次渲染
+      s2.setDataCfg({ ...mockDataConfig, totalData: undefined }, true);
+      s2.render();
+
+      expect(s2.dataSet.totalData).toEqual([]);
+      expect(s2.dataCfg.fields).toEqual({
+        ...mockDataConfig.fields,
+        customTreeItems: [],
+      });
+      expect(s2.dataCfg.totalData).toEqual([]);
+      s2.destroy();
+    });
+
+    test('should update all Data Config when reset is false', () => {
+      const totalData = [
+        {
+          province: '浙江',
+          type: '笔',
+          price: 3,
+          cost: 6,
+        },
+      ];
+      const s2 = new PivotSheet(
+        container,
+        { ...mockDataConfig, totalData },
+        s2Options,
+      );
+      s2.render();
+
+      // 改变 totalData 为 undefined 再次渲染
+      s2.setDataCfg({ ...mockDataConfig, totalData: undefined }, false);
+      s2.render();
+
+      expect(s2.dataSet.totalData).toEqual(totalData);
+      expect(s2.dataCfg.fields).toEqual({
+        ...mockDataConfig.fields,
+        customTreeItems: [],
+      });
+      expect(s2.dataCfg.totalData).toEqual(totalData);
+      s2.destroy();
+    });
+
+    test('should update all Options when reset is true', () => {
+      const s2 = new PivotSheet(container, mockDataConfig, s2Options);
+      s2.render();
+      const emitAttrs = ['width', 'height', 'hierarchyType', 'hdAdapter'];
+      const partialOptions = pick(s2.options, emitAttrs);
+      expect(partialOptions).toEqual(s2Options);
+
+      s2.setOptions(
+        {
+          width: 300,
+          hdAdapter: false,
+        },
+        true,
+      );
+      expect(pick(s2.options, emitAttrs)).toEqual({
+        height: DEFAULT_OPTIONS.height,
+        hierarchyType: DEFAULT_OPTIONS.hierarchyType,
+        width: 300,
+        hdAdapter: false,
+      });
+    });
+
+    test('should update all Options when reset is false', () => {
+      const s2 = new PivotSheet(container, mockDataConfig, s2Options);
+      s2.render();
+      const emitAttrs = ['width', 'height', 'hierarchyType', 'hdAdapter'];
+
+      s2.setOptions(
+        {
+          width: 300,
+          hdAdapter: false,
+        },
+        false,
+      );
+
+      expect(pick(s2.options, emitAttrs)).toEqual({
+        height: s2Options.height,
+        hierarchyType: s2Options.hierarchyType,
+        width: 300,
+        hdAdapter: false,
+      });
+    });
+
+    describe('Measure Text Tests', () => {
+      const text = '测试';
+      const font: TextTheme = {
+        textAlign: 'center',
+        fontSize: 12,
+      };
+      const s2 = new PivotSheet(getContainer(), mockDataConfig, s2Options);
+      s2.render();
+
+      test('should measure text', () => {
+        expect(s2.measureText(text, null)).toBeNull();
+        expect(s2.measureText(text, font)).toBeInstanceOf(TextMetrics);
+      });
+
+      test('should measure text width', () => {
+        expect(s2.measureTextWidth(text, null)).toEqual(0);
+        expect(s2.measureTextWidth(text, font)).not.toBeLessThanOrEqual(0);
+      });
+
+      test('should measure text height', () => {
+        expect(s2.measureTextHeight(text, null)).toEqual(0);
+        expect(s2.measureTextHeight(text, font)).not.toBeLessThanOrEqual(0);
+      });
     });
   });
 });

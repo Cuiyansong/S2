@@ -2,9 +2,13 @@ import {
   createFakeSpreadSheet,
   createMockCellInfo,
   createPivotSheet,
+  createTableSheet,
+  getContainer,
 } from 'tests/util/helpers';
 import type { BBox } from '@antv/g-canvas';
 import { omit } from 'lodash';
+import * as dataConfig from 'tests/data/mock-dataset.json';
+import type { CellMeta } from '@/common/interface/interaction';
 import {
   getAutoAdjustPosition,
   setTooltipContainerStyle,
@@ -27,6 +31,7 @@ import {
   VALUE_FIELD,
   TOOLTIP_CONTAINER_SHOW_CLS,
   TOOLTIP_CONTAINER_HIDE_CLS,
+  PivotSheet,
 } from '@/index';
 import type { BaseFacet } from '@/facet/base-facet';
 
@@ -53,7 +58,7 @@ describe('Tooltip Utils Tests', () => {
     height: 1000,
   };
 
-  beforeAll(() => {
+  beforeEach(() => {
     s2 = createFakeSpreadSheet();
     tooltipContainer = {
       getBoundingClientRect: () =>
@@ -445,9 +450,13 @@ describe('Tooltip Utils Tests', () => {
     let s2: SpreadSheet;
 
     const getMockTooltipData = (cell: S2CellType) => {
+      const node = cell.getMeta() as Node;
+      // #getSelectedCellIndexes mock
+      node.isLeaf = true;
+
       jest.spyOn(s2.interaction, 'getState').mockImplementationOnce(() => ({
         cells: [getCellMeta(cell)],
-        nodes: [cell.getMeta() as Node],
+        nodes: [node],
       }));
 
       jest
@@ -462,6 +471,68 @@ describe('Tooltip Utils Tests', () => {
         targetCell: cell,
         spreadsheet: s2,
       });
+    };
+
+    const getTotalInfo = (isTotalCell: boolean, count: number) => {
+      const dataCells = s2.interaction.getPanelGroupAllDataCells();
+      const selectedCells = isTotalCell
+        ? [
+            dataCells.find((cell) => {
+              const meta = cell.getMeta();
+              return meta.isTotals;
+            }),
+          ]
+        : dataCells
+            .filter((cell) => {
+              const meta = cell.getMeta();
+              return !meta.isTotals;
+            })
+            .slice(0, count);
+
+      const selectedCellMetas = selectedCells.map((cell) =>
+        cell.getMeta(),
+      ) as unknown as CellMeta[];
+
+      jest
+        .spyOn(s2.interaction, 'getCells')
+        .mockImplementationOnce(() => selectedCellMetas);
+
+      const tooltipData = getTooltipData({
+        cellInfos: [selectedCellMetas],
+        options: {
+          showSingleTips: false,
+        },
+        targetCell: null,
+        spreadsheet: s2,
+      });
+
+      const baseCellInfo = {
+        province: '浙江省',
+        sub_type: '桌子',
+        type: '家具',
+      };
+      const value = isTotalCell ? 15420 : 18375;
+      const selectedData = isTotalCell
+        ? [getCellData(15420)]
+        : [
+            getCellData(7789, false, {
+              ...baseCellInfo,
+              city: '杭州市',
+            }),
+            getCellData(2367, false, {
+              ...baseCellInfo,
+              city: '绍兴市',
+            }),
+            getCellData(3877, false, {
+              ...baseCellInfo,
+              city: '宁波市',
+            }),
+            getCellData(4342, false, {
+              ...baseCellInfo,
+              city: '舟山市',
+            }),
+          ];
+      return { tooltipData, value, selectedData };
     };
 
     test('should get cell data info keys', () => {
@@ -499,71 +570,68 @@ describe('Tooltip Utils Tests', () => {
           col: colTotalOptions,
         });
         s2.render();
-
-        const dataCells = s2.interaction.getPanelGroupAllDataCells();
-        const selectedCells = isTotalCell
-          ? [
-              dataCells.find((cell) => {
-                const meta = cell.getMeta();
-                return meta.isTotals;
-              }),
-            ]
-          : dataCells
-              .filter((cell) => {
-                const meta = cell.getMeta();
-                return !meta.isTotals;
-              })
-              .slice(0, count);
-
-        jest
-          .spyOn(s2.interaction, 'getActiveCells')
-          .mockImplementationOnce(() => selectedCells);
-
-        const tooltipData = getTooltipData({
-          cellInfos: [selectedCells],
-          options: {
-            showSingleTips: false,
-          },
-          targetCell: null,
-          spreadsheet: s2,
-        });
-
-        const baseCellInfo = {
-          province: '浙江省',
-          sub_type: '桌子',
-          type: '家具',
-        };
-        const value = isTotalCell ? 15420 : 18375;
-        const selectedData = isTotalCell
-          ? [getCellData(15420)]
-          : [
-              getCellData(7789, false, {
-                ...baseCellInfo,
-                city: '杭州市',
-              }),
-              getCellData(2367, false, {
-                ...baseCellInfo,
-                city: '绍兴市',
-              }),
-              getCellData(3877, false, {
-                ...baseCellInfo,
-                city: '宁波市',
-              }),
-              getCellData(4342, false, {
-                ...baseCellInfo,
-                city: '舟山市',
-              }),
-            ];
+        const { tooltipData, value, selectedData } = getTotalInfo(
+          isTotalCell,
+          count,
+        );
 
         expect(tooltipData.summaries).toStrictEqual([
           {
             name: '数量',
             value,
             selectedData,
+            originValue: value,
           },
         ]);
 
         s2.destroy();
+      },
+    );
+
+    test.each([
+      { count: 1, isTotalCell: true, name: '单选' },
+      { count: 4, isTotalCell: false, name: '多选' },
+    ])(
+      `should get data cell summary data info for %o when the meta set formatted`,
+      ({ count, isTotalCell }) => {
+        const customMeta = dataConfig.meta.map((meta) => {
+          if (meta.name === '数量') {
+            return {
+              ...meta,
+              formatter: (value: number) => `${value}%`,
+            };
+          }
+          return meta;
+        });
+
+        s2 = new PivotSheet(
+          getContainer(),
+          {
+            ...dataConfig,
+            meta: customMeta,
+          },
+          {
+            totals: {
+              row: rowTotalOptions,
+              col: colTotalOptions,
+            },
+          },
+        );
+        s2.render();
+
+        const { tooltipData, value, selectedData } = getTotalInfo(
+          isTotalCell,
+          count,
+        );
+
+        expect(tooltipData.summaries).toStrictEqual([
+          {
+            name: '数量',
+            value: `${value}%`,
+            selectedData,
+            originValue: value,
+          },
+        ]);
       },
     );
 
@@ -607,6 +675,7 @@ describe('Tooltip Utils Tests', () => {
                   type: '办公用品',
                 }),
               ],
+              originValue: isTotalCell ? 43098 : 15420,
             },
           ],
         });
@@ -730,6 +799,159 @@ describe('Tooltip Utils Tests', () => {
           s2.destroy();
         },
       );
+    });
+
+    describe('Tooltip Get Data Tests For TableSheet', () => {
+      beforeEach(() => {
+        s2 = createTableSheet(
+          { showSeriesNumber: true },
+          { useSimpleData: false },
+        );
+        s2.render();
+      });
+
+      afterEach(() => {
+        s2.destroy();
+      });
+
+      test('should get correctly summaries of selected col cell', () => {
+        const typeColCell = s2.getColumnLeafNodes()[1].belongsCell;
+        const subTypeColCell = s2.getColumnLeafNodes()[2].belongsCell;
+
+        expect(getMockTooltipData(typeColCell)).toMatchInlineSnapshot(`
+          Object {
+            "description": "类别说明。。",
+            "details": null,
+            "headInfo": null,
+            "infos": undefined,
+            "interpretation": undefined,
+            "name": undefined,
+            "summaries": Array [
+              Object {
+                "name": "",
+                "selectedData": Array [
+                  "家具",
+                  "家具",
+                  "家具",
+                  "家具",
+                  "家具",
+                  "家具",
+                  "家具",
+                  "家具",
+                  "办公用品",
+                  "办公用品",
+                  "办公用品",
+                  "办公用品",
+                  "办公用品",
+                  "办公用品",
+                  "办公用品",
+                  "办公用品",
+                  "家具",
+                  "家具",
+                  "家具",
+                  "家具",
+                  "家具",
+                  "家具",
+                  "家具",
+                  "家具",
+                  "办公用品",
+                  "办公用品",
+                  "办公用品",
+                  "办公用品",
+                  "办公用品",
+                  "办公用品",
+                  "办公用品",
+                  "办公用品",
+                ],
+                "value": "",
+              },
+            ],
+            "tips": undefined,
+          }
+        `);
+        expect(getMockTooltipData(subTypeColCell)).toMatchInlineSnapshot(`
+          Object {
+            "description": "子类别说明。。",
+            "details": null,
+            "headInfo": null,
+            "infos": undefined,
+            "interpretation": undefined,
+            "name": undefined,
+            "summaries": Array [
+              Object {
+                "name": "",
+                "selectedData": Array [
+                  "桌子",
+                  "桌子",
+                  "桌子",
+                  "桌子",
+                  "沙发",
+                  "沙发",
+                  "沙发",
+                  "沙发",
+                  "笔",
+                  "笔",
+                  "笔",
+                  "笔",
+                  "纸张",
+                  "纸张",
+                  "纸张",
+                  "纸张",
+                  "桌子",
+                  "桌子",
+                  "桌子",
+                  "桌子",
+                  "沙发",
+                  "沙发",
+                  "沙发",
+                  "沙发",
+                  "笔",
+                  "笔",
+                  "笔",
+                  "笔",
+                  "纸张",
+                  "纸张",
+                  "纸张",
+                  "纸张",
+                ],
+                "value": "",
+              },
+            ],
+            "tips": undefined,
+          }
+        `);
+      });
+
+      test('should get correctly summaries of selected series number cell', () => {
+        const seriesCell = s2.interaction.getPanelGroupAllDataCells()[0];
+
+        expect(getMockTooltipData(seriesCell)).toMatchInlineSnapshot(`
+          Object {
+            "description": undefined,
+            "details": null,
+            "headInfo": null,
+            "infos": undefined,
+            "interpretation": undefined,
+            "name": undefined,
+            "summaries": Array [
+              Object {
+                "name": "",
+                "selectedData": Array [
+                  Object {
+                    "city": "杭州市",
+                    "number": 7789,
+                    "province": "浙江省",
+                    "sub_type": "桌子",
+                    "type": "家具",
+                  },
+                ],
+                "value": "",
+              },
+            ],
+            "tips": undefined,
+          }
+        `);
+      });
     });
   });
 

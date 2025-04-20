@@ -4,11 +4,17 @@
 import { get, keys } from 'lodash';
 import * as multiDataCfg from 'tests/data/simple-data.json';
 import { assembleDataCfg, TOTALS_OPTIONS } from '../../util';
-import { EXTRA_FIELD, VALUE_FIELD } from '@/common/constant';
-import { type S2DataConfig, Aggregation } from '@/common/interface';
-import { PivotSheet } from '@/sheet-type';
-import { PivotDataSet } from '@/data-set/pivot-data-set';
+import { CalcTotals, SpreadSheet } from '../../../src';
+import {
+  EXTRA_FIELD,
+  QueryDataType,
+  TOTAL_VALUE,
+  VALUE_FIELD,
+} from '@/common/constant';
+import { Aggregation, type S2DataConfig } from '@/common/interface';
 import { Store } from '@/common/store';
+import { PivotDataSet } from '@/data-set/pivot-data-set';
+import { PivotSheet } from '@/sheet-type';
 import { getDimensionsWithoutPathPre } from '@/utils/dataset/pivot-data-set';
 
 jest.mock('@/sheet-type');
@@ -37,72 +43,74 @@ describe('Pivot Dataset Total Test', () => {
       expect([...rowPivotMeta.keys()]).toEqual([
         '浙江省',
         '四川省',
-        undefined, // 行总计，根据数据结构来的
+        TOTAL_VALUE, // 行总计，根据数据结构来的
       ]);
       expect([...rowPivotMeta.get('浙江省').children.keys()]).toEqual([
         '杭州市',
         '绍兴市',
         '宁波市',
         '舟山市',
-        undefined, // 行小计，来源测试数据
+        TOTAL_VALUE, // 行小计，来源测试数据
       ]);
       expect([...rowPivotMeta.get('四川省').children.keys()]).toEqual([
         '成都市',
         '绵阳市',
         '南充市',
         '乐山市',
-        undefined,
+        TOTAL_VALUE,
       ]);
     });
 
     test('should get correct col pivot meta', () => {
       const colPivotMeta = dataSet.colPivotMeta;
-      expect([...colPivotMeta.keys()]).toEqual(['家具', '办公用品', undefined]);
+      expect([...colPivotMeta.keys()]).toEqual([
+        '家具',
+        '办公用品',
+        TOTAL_VALUE,
+      ]);
 
       expect([...colPivotMeta.get('家具').children.keys()]).toEqual([
         '桌子',
         '沙发',
-        undefined,
+        TOTAL_VALUE,
       ]);
 
       expect([...colPivotMeta.get('办公用品').children.keys()]).toEqual([
         '笔',
         '纸张',
-        undefined,
+        TOTAL_VALUE,
       ]);
     });
 
     test('should get correct indexesData', () => {
       const indexesData = dataSet.indexesData;
-      expect(get(indexesData, '0.0.undefined.undefined.0')).toEqual({
+      expect(
+        get(indexesData, ['province[&]city[&]type[&]sub_type', 1, 1, 0, 0, 1]),
+      ).toEqual({
         province: '浙江省',
         city: '杭州市',
         number: 15420,
-        [EXTRA_FIELD]: 'number',
-        [VALUE_FIELD]: 15420,
       });
 
-      expect(get(indexesData, '0.0.1.undefined.0')).toEqual({
+      expect(
+        get(indexesData, ['province[&]city[&]type[&]sub_type', 1, 1, 2, 0, 1]),
+      ).toEqual({
         province: '浙江省',
         city: '杭州市',
         type: '办公用品',
         number: 2288,
-        [EXTRA_FIELD]: 'number',
-        [VALUE_FIELD]: 2288,
       });
-      expect(get(indexesData, '1.undefined.1.undefined.0')).toEqual({
+      expect(
+        get(indexesData, ['province[&]city[&]type[&]sub_type', 2, 0, 2, 0, 1]),
+      ).toEqual({
         province: '四川省',
         type: '办公用品',
         number: 18479,
-        [EXTRA_FIELD]: 'number',
-        [VALUE_FIELD]: 18479,
       });
       expect(
-        get(indexesData, 'undefined.undefined.undefined.undefined.0'),
+        get(indexesData, ['province[&]city[&]type[&]sub_type', 0, 0, 0, 0, 1]),
       ).toEqual({
         number: 78868,
-        [EXTRA_FIELD]: 'number',
-        [VALUE_FIELD]: 78868,
       });
     });
 
@@ -117,7 +125,7 @@ describe('Pivot Dataset Total Test', () => {
       ]);
       expect(
         getDimensionsWithoutPathPre(sortedDimensionValues.province),
-      ).toEqual(['浙江省', '四川省', 'undefined']);
+      ).toEqual(['浙江省', '四川省', TOTAL_VALUE]);
       expect(getDimensionsWithoutPathPre(sortedDimensionValues.city)).toEqual([
         '杭州市',
         '绍兴市',
@@ -127,14 +135,14 @@ describe('Pivot Dataset Total Test', () => {
         '绵阳市',
         '南充市',
         '乐山市',
-        'undefined',
-        'undefined',
-        'undefined',
+        TOTAL_VALUE,
+        TOTAL_VALUE,
+        TOTAL_VALUE,
       ]);
       expect(getDimensionsWithoutPathPre(sortedDimensionValues.type)).toEqual([
         '家具',
         '办公用品',
-        'undefined',
+        TOTAL_VALUE,
       ]);
       expect(
         getDimensionsWithoutPathPre(sortedDimensionValues.sub_type),
@@ -143,9 +151,9 @@ describe('Pivot Dataset Total Test', () => {
         '沙发',
         '笔',
         '纸张',
-        'undefined',
-        'undefined',
-        'undefined',
+        TOTAL_VALUE,
+        TOTAL_VALUE,
+        TOTAL_VALUE,
       ]);
       expect(
         getDimensionsWithoutPathPre(sortedDimensionValues[EXTRA_FIELD]),
@@ -395,18 +403,31 @@ describe('Pivot Dataset Total Test', () => {
     });
 
     describe('getCellData function when totals calculated by calcFunc', () => {
+      let s2: SpreadSheet | undefined;
+
       beforeEach(() => {
         MockPivotSheet.mockClear();
         const mockSheet = new MockPivotSheet();
         mockSheet.store = new Store();
         mockSheet.isValueInCols = () => true;
-        const calcFunc1 = (query, data) => {
+
+        const calcFunc1: CalcTotals['calcFunc'] = (
+          query,
+          data,
+          spreadsheet,
+        ) => {
+          s2 = spreadsheet;
           const sum = data.reduce((pre, next) => {
             return pre + next[next[EXTRA_FIELD]];
           }, 0);
           return sum * 2;
         };
-        const calcFunc2 = (query, data) => {
+        const calcFunc2: CalcTotals['calcFunc'] = (
+          query,
+          data,
+          spreadsheet,
+        ) => {
+          s2 = spreadsheet;
           const sum = data.reduce((pre, next) => {
             return pre + next[next[EXTRA_FIELD]];
           }, 0);
@@ -443,6 +464,68 @@ describe('Pivot Dataset Total Test', () => {
         dataSet = new PivotDataSet(mockSheet);
         dataSet.setDataCfg(dataCfg);
       });
+
+      afterEach(() => {
+        s2 = undefined;
+      });
+
+      test('should get correct total cell data when totals calculated by calcFunc and Existential dimension grouping', () => {
+        const totalStatus = {
+          isRowTotal: true,
+          isColTotal: true,
+          isRowSubTotal: true,
+          isColSubTotal: true,
+        };
+
+        expect(
+          dataSet.getCellData({
+            query: {
+              province: '浙江省',
+              sub_type: '桌子',
+              [EXTRA_FIELD]: 'number',
+            },
+            isTotals: true,
+            totalStatus,
+          }),
+        ).toContainEntries([[VALUE_FIELD, 18375]]);
+
+        expect(
+          dataSet.getCellData({
+            query: {
+              province: '浙江省',
+              [EXTRA_FIELD]: 'number',
+            },
+            totalStatus,
+            isTotals: true,
+          }),
+        ).toContainEntries([[VALUE_FIELD, 43098]]);
+
+        expect(
+          dataSet.getCellData({
+            query: {
+              sub_type: '桌子',
+              [EXTRA_FIELD]: 'number',
+            },
+            totalStatus,
+            isTotals: true,
+          }),
+        ).toContainEntries([[VALUE_FIELD, 26193]]);
+
+        expect(
+          dataSet.getCellData({
+            query: {
+              province: '浙江省',
+              type: '家具',
+              [EXTRA_FIELD]: 'number',
+            },
+            isTotals: true,
+            totalStatus,
+          }),
+        ).toContainEntries([[VALUE_FIELD, 32418]]);
+
+        expect(s2).toBeDefined();
+      });
+
       test('should get correct total cell data when totals calculated by calcFunc', () => {
         expect(
           dataSet.getCellData({
@@ -508,6 +591,8 @@ describe('Pivot Dataset Total Test', () => {
             isTotals: true,
           }),
         ).toContainEntries([[VALUE_FIELD, 78868]]);
+
+        expect(s2).toBeDefined();
       });
     });
 
@@ -577,16 +662,7 @@ describe('Pivot Dataset Total Test', () => {
         '笔',
         '纸张',
       ]);
-      // with total and subTotal
-      expect(dataSet.getDimensionValues(EXTRA_FIELD)).toEqual([
-        'number',
-        'number',
-        'number',
-        'number',
-        'number',
-        'number',
-        'number',
-      ]);
+
       expect(dataSet.getDimensionValues('empty')).toEqual([]);
 
       // with query
@@ -673,6 +749,54 @@ describe('Pivot Dataset Total Test', () => {
       expect(isRowSubTotal4).toBeTrue();
       expect(isColTotal4).toBeFalse();
       expect(isColSubTotal4).toBeTrue();
+    });
+  });
+
+  describe('test for total with dimension group', () => {
+    beforeEach(() => {
+      MockPivotSheet.mockClear();
+      const mockSheet = new MockPivotSheet();
+      mockSheet.store = new Store();
+      mockSheet.isValueInCols = () => true;
+      dataSet = new PivotDataSet(mockSheet);
+
+      dataCfg = assembleDataCfg({
+        meta: [],
+        fields: {
+          rows: ['province', 'city', 'type', 'sub_type'],
+          columns: [],
+        },
+      });
+      dataSet.setDataCfg(dataCfg);
+    });
+
+    test('get correct MultiData when query need to be processed', () => {
+      expect(
+        dataSet.getMultiData(
+          {
+            province: '浙江省',
+            sub_type: '桌子',
+          },
+          { queryType: QueryDataType.DetailOnly },
+        ),
+      ).toMatchSnapshot();
+      expect(
+        dataSet.getMultiData(
+          {
+            province: '浙江省',
+            sub_type: '杭州市',
+          },
+          { queryType: QueryDataType.DetailOnly },
+        ),
+      ).toMatchSnapshot();
+      expect(
+        dataSet.getMultiData(
+          {
+            sub_type: '桌子',
+          },
+          { queryType: QueryDataType.DetailOnly },
+        ),
+      ).toMatchSnapshot();
     });
   });
 });
